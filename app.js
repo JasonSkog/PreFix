@@ -15,7 +15,6 @@ class VirtualKeyboard {
             ['z', 'x', 'c', 'v', 'b', 'n', 'm']
         ];
 
-        // Create regular letter keys
         layout.forEach(row => {
             const rowDiv = document.createElement('div');
             rowDiv.className = 'keyboard-row';
@@ -31,11 +30,9 @@ class VirtualKeyboard {
             keyboard.appendChild(rowDiv);
         });
 
-        // Add bottom row with special keys
         const bottomRow = document.createElement('div');
         bottomRow.className = 'keyboard-row';
 
-        // Create special keys...
         const backspace = document.createElement('button');
         backspace.className = 'key wide';
         backspace.textContent = '⌫';
@@ -59,12 +56,25 @@ class VirtualKeyboard {
         document.body.appendChild(keyboard);
     }
 
-    // ... rest of VirtualKeyboard methods remain the same
+    handleKeyPress(key) {
+        this.currentValue = this.input.value + key;
+        this.input.value = this.currentValue;
+        this.input.dispatchEvent(new Event('input'));
+    }
+
+    handleBackspace() {
+        this.currentValue = this.input.value.slice(0, -1);
+        this.input.value = this.currentValue;
+        this.input.dispatchEvent(new Event('input'));
+    }
+
+    handleEnter() {
+        this.input.form.dispatchEvent(new Event('submit'));
+    }
 }
 
 class Game {
     constructor() {
-        // Common English consonant blends
         this.consonantBlends = [
             'bl', 'br', 'ch', 'cl', 'cr', 'dr', 'fl', 
             'fr', 'gl', 'gr', 'pl', 'pr', 'sc', 'sk', 
@@ -94,13 +104,122 @@ class Game {
         this.updateUI();
         this.setupEventListeners();
         
-        // Set input placeholder
         document.getElementById("wordInput").placeholder = 
             "Enter a 2-syllable word starting with the prefix above...";
         
-        // Initialize virtual keyboard for mobile
         if (window.innerWidth <= 640) {
             this.keyboard = new VirtualKeyboard(document.getElementById('wordInput'));
+        }
+    }
+
+    getDailyPrefix() {
+        const today = new Date();
+        const dateString = `${today.getFullYear()}${today.getMonth()}${today.getDate()}`;
+        const index = parseInt(dateString, 10) % this.consonantBlends.length;
+        return this.consonantBlends[index];
+    }
+
+    loadState() {
+        try {
+            const saved = JSON.parse(localStorage.getItem("prefixGame"));
+            return saved && saved.date === new Date().toLocaleDateString()
+                ? saved
+                : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    saveState() {
+        localStorage.setItem("prefixGame", JSON.stringify(this.state));
+    }
+
+    async validateWord(word) {
+        try {
+            const response = await fetch(
+                `https://api.datamuse.com/words?sp=${word}&md=sf&max=1`
+            );
+            const data = await response.json();
+            
+            if (data.length === 0) return false;
+            
+            const wordData = data[0];
+            const numSyllables = wordData.numSyllables || 0;
+            
+            return (
+                wordData.word === word &&
+                numSyllables === 2 &&
+                !wordData.tags?.includes('prop') &&
+                word === word.toLowerCase()
+            );
+        } catch (error) {
+            console.error('API Error:', error);
+            return false;
+        }
+    }
+
+    async submitWord(word) {
+        word = word.toLowerCase().trim();
+        
+        if (!word) return { success: false, message: "Please enter a word" };
+        if (!word.startsWith(this.state.prefix.toLowerCase())) {
+            return {
+                success: false,
+                message: `Word must start with "${this.state.prefix}"`,
+            };
+        }
+        if (this.state.foundWords[word]) {
+            return { success: false, message: "Word already found!" };
+        }
+
+        const isValid = await this.validateWord(word);
+        if (!isValid) {
+            return { success: false, message: "Not a valid two-syllable word" };
+        }
+
+        const points = await this.getWordComplexity(word);
+        
+        this.state.foundWords[word] = { 
+            points, 
+            category: this.getCategory(points) 
+        };
+        this.state.totalScore += points;
+        this.saveState();
+        this.updateUI();
+        this.updateAchievements();
+
+        return {
+            success: true,
+            message: `Found "${word}" - ${points} point${points !== 1 ? "s" : ""}!`,
+        };
+    }
+
+    getCategory(points) {
+        if (points === 1) return 'common';
+        if (points === 2) return 'moderate';
+        return 'challenging';
+    }
+
+    async getWordComplexity(word) {
+        try {
+            const response = await fetch(
+                `https://api.datamuse.com/words?sp=${word}&md=f`
+            );
+            const data = await response.json();
+
+            if (data.length > 0 && data[0].tags) {
+                const frequencyTag = data[0].tags.find((tag) => tag.startsWith("f:"));
+                if (frequencyTag) {
+                    const frequency = parseFloat(frequencyTag.split(":")[1]);
+                    if (frequency > 10) return 1;
+                    if (frequency > 1) return 2;
+                    return 3;
+                }
+            }
+            return 3;
+        } catch (error) {
+            console.error('API Error:', error);
+            return 3;
         }
     }
 
@@ -134,15 +253,83 @@ class Game {
         }
     }
 
-    // Modified submitWord method (removed super call)
-    async submitWord(word) {
-        const result = await this.validateAndSubmitWord(word);
-        if (result.success) {
-            this.updateAchievements();
+    updateAchievements() {
+        const wordCount = Object.keys(this.state.foundWords).length;
+        let newAchievement = "";
+        
+        for (let i = this.achievements.length - 1; i >= 0; i--) {
+            if (wordCount >= this.achievements[i].threshold) {
+                newAchievement = this.achievements[i].name;
+                break;
+            }
         }
-        return result;
+        
+        if (newAchievement && newAchievement !== this.state.currentAchievement) {
+            this.state.currentAchievement = newAchievement;
+            this.saveState();
+            
+            const messageDiv = document.getElementById("message");
+            messageDiv.textContent = `Achievement Unlocked: ${newAchievement}!`;
+            messageDiv.className = "message success achievement";
+            messageDiv.style.display = "block";
+            setTimeout(() => {
+                messageDiv.style.display = "none";
+            }, 5000);
+        }
+    }
+
+    updateUI() {
+        document.getElementById("currentPrefix").textContent = 
+            this.state.prefix.toUpperCase();
+        document.getElementById("dateDisplay").textContent = 
+            `${this.state.day} - ${this.state.date}`;
+        document.getElementById("totalScore").textContent = 
+            this.state.totalScore;
+        document.getElementById("wordsFound").textContent = 
+            Object.keys(this.state.foundWords).length;
+
+        const progress = (Object.keys(this.state.foundWords).length / 20) * 100;
+        document.getElementById("progressBar").style.width = 
+            `${Math.min(progress, 100)}%`;
+
+        const wordsHTML = Object.entries(this.state.foundWords)
+            .map(([word, data]) => `
+                <div class="word-chip">
+                    ${word}
+                    <span class="point-badge ${data.category}">
+                        ${data.points}pt${data.points !== 1 ? "s" : ""}
+                    </span>
+                </div>
+            `)
+            .join("");
+        document.getElementById("foundWords").innerHTML = wordsHTML;
+    }
+
+    setupEventListeners() {
+        const form = document.getElementById("wordForm");
+        const input = document.getElementById("wordInput");
+        const submitBtn = form.querySelector("button");
+        const messageDiv = document.getElementById("message");
+
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            const result = await this.submitWord(input.value);
+            messageDiv.textContent = result.message;
+            messageDiv.className = `message ${result.success ? "success" : "error"}`;
+            messageDiv.style.display = "block";
+
+            if (result.success) input.value = "";
+            setTimeout(() => (messageDiv.style.display = "none"), 3000);
+            input.focus();
+        };
+
+        form.addEventListener("submit", handleSubmit);
+        submitBtn.addEventListener("click", handleSubmit);
+        submitBtn.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            handleSubmit(e);
+        });
     }
 }
 
-// Initialize the game when the DOM is loaded
 document.addEventListener("DOMContentLoaded", () => new Game());
