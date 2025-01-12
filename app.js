@@ -66,7 +66,7 @@ class Game {
     word = word.toLowerCase().trim();
     
     // Basic validation
-    if (!word) return { success: false, message: "Please enter a word" };
+    if (!word) return { success: false, message: "Enter a 2-syllable word starting with the prefix above..." };
     if (!word.startsWith(this.state.prefix.toLowerCase())) {
       return {
         success: false,
