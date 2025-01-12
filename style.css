@@ -191,6 +191,12 @@ body {
 .point-badge.challenging { background: var(--challenging); }
 
 /* Info Box and Achievement Styles */
+.info-section {
+    margin-top: 48px;
+    border-top: 2px solid #e2e8f0;
+    padding-top: 24px;
+}
+
 .info-box {
     background: var(--bg);
     border-radius: 12px;
@@ -268,5 +274,14 @@ body {
     .word-chip { 
         width: calc(100% - 32px); /* Account for padding */
         justify-content: space-between; 
+    }
+    
+    .info-box {
+        padding: 16px;
+    }
+    
+    .input-field {
+        font-size: 16px; /* Prevent zoom on mobile */
+        padding: 10px;
     }
 }
