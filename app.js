@@ -17,7 +17,7 @@ class VirtualKeyboard {
         ];
 
         // Create regular letter keys
-        layout.forEach(row => {
+        layout.forEach(row => 
             const rowDiv = document.createElement('div');
             rowDiv.className = 'keyboard-row';
             
