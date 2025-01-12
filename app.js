@@ -21,6 +21,10 @@ class Game {
     this.state = this.loadState() || this.defaultState;
     this.updateUI();
     this.setupEventListeners();
+    
+    // Set the input placeholder text
+    document.getElementById("wordInput").placeholder = 
+      "Enter a 2-syllable word starting with the prefix above...";
   }
 
   getDailyPrefix() {
@@ -48,14 +52,29 @@ class Game {
 
   async validateWord(word) {
     try {
-      // First, check if it's a valid word using Datamuse
+      // Use Datamuse API with metadata for syllables and frequency
       const response = await fetch(
-        `https://api.datamuse.com/words?sp=${word}&md=f&max=1`
+        `https://api.datamuse.com/words?sp=${word}&md=sf&max=1`
       );
       const data = await response.json();
       
-      // Check if the word exists in Datamuse results
-      return data.length > 0;
+      if (data.length === 0) return false;
+      
+      const wordData = data[0];
+      
+      // Check if word exists and get syllable count
+      const numSyllables = wordData.numSyllables || 0;
+      
+      // Validate that:
+      // 1. The word exists in Datamuse
+      // 2. It has exactly 2 syllables
+      // 3. It's not a proper noun (doesn't start with capital letter)
+      return (
+        wordData.word === word &&
+        numSyllables === 2 &&
+        !wordData.tags?.includes('prop') && // Exclude proper nouns
+        word === word.toLowerCase() // Double check it's lowercase
+      );
     } catch (error) {
       console.error('API Error:', error);
       return false;
@@ -66,7 +85,7 @@ class Game {
     word = word.toLowerCase().trim();
     
     // Basic validation
-    if (!word) return { success: false, message: "Enter a 2-syllable word starting with the prefix above..." };
+    if (!word) return { success: false, message: "Please enter a word" };
     if (!word.startsWith(this.state.prefix.toLowerCase())) {
       return {
         success: false,
@@ -80,7 +99,7 @@ class Game {
     // Validate word using Datamuse API
     const isValid = await this.validateWord(word);
     if (!isValid) {
-      return { success: false, message: "Not a valid word" };
+      return { success: false, message: "Not a valid two-syllable word" };
     }
 
     // Get word complexity and points
