@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PreFix - Word Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="title">PreFix</h1>
+
+        <div id="currentPrefix" class="prefix">BR</div>
+
+        <div id="dateDisplay" class="date-display"></div>
+
+        <form id="wordForm" class="input-form">
+            <input type="text" id="wordInput" class="input-field" placeholder="Enter a word..." autocomplete="off">
+            <button type="submit" class="button">Submit</button>
+        </form>
+
+        <div id="message" class="message"></div>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div id="totalScore" class="stat-value">0</div>
+                <div class="stat-label">Score</div>
+            </div>
+            <div class="stat-item">
+                <div id="wordsFound" class="stat-value">0</div>
+                <div class="stat-label">Words</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">20</div>
+                <div class="stat-label">Target</div>
+            </div>
+        </div>
+
+        <div class="progress-bar">
+            <div id="progressBar" class="progress-fill"></div>
+        </div>
+
+        <div id="foundWords" class="found-words"></div>
+    </div>
+
+    <script src="app.js" type="text/javascript"></script>
+
+</body>
+
+</html>
