@@ -1,53 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PreFix - Word Game</title>
+    <meta name="description" content="PreFix - A daily word game challenging you to build words with prefix blends">
+    <title>PreFix - Daily Word Game</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 </head>
-
 <body>
     <div class="container">
-        <h1 class="title">PreFix</h1>
-
-        <div id="currentPrefix" class="prefix">BR</div>
-
-        <div id="dateDisplay" class="date-display"></div>
-
-        <form id="wordForm" class="input-form">
-            <input type="text" id="wordInput" class="input-field" placeholder="Enter a word..." autocomplete="off">
-            <button type="submit" class="button">Submit</button>
-        </form>
-
-        <div id="message" class="message"></div>
-
-        <div class="stats-grid">
-            <div class="stat-item">
-                <div id="totalScore" class="stat-value">0</div>
-                <div class="stat-label">Score</div>
+        <header class="game-header">
+            <h1 class="title">PreFix</h1>
+            <div id="currentPrefix" class="prefix" aria-label="Today's prefix">BR</div>
+            <div id="dateDisplay" class="date-display" aria-label="Current date"></div>
+        </header>
+        
+        <main>
+            <form id="wordForm" class="input-form" autocomplete="off">
+                <label for="wordInput" class="sr-only">Enter a word with the given prefix</label>
+                <input 
+                    type="text" 
+                    id="wordInput" 
+                    class="input-field" 
+                    placeholder="Enter a word..." 
+                    autocomplete="off"
+                    aria-label="Word input field">
+                <button type="submit" class="button">Submit</button>
+            </form>
+            
+            <div id="message" class="message" role="status" aria-live="polite"></div>
+            
+            <div class="stats-grid" aria-label="Game statistics">
+                <div class="stat-item">
+                    <div id="totalScore" class="stat-value" aria-label="Current score">0</div>
+                    <div class="stat-label">Score</div>
+                </div>
+                <div class="stat-item">
+                    <div id="wordsFound" class="stat-value" aria-label="Words found">0</div>
+                    <div class="stat-label">Words Found</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" aria-label="Target goal">40</div>
+                    <div class="stat-label">Words Goal</div>
+                </div>
             </div>
-            <div class="stat-item">
-                <div id="wordsFound" class="stat-value">0</div>
-                <div class="stat-label">Words Found</div>
+            
+            <div class="progress-container" role="progressbar" aria-label="Progress towards goal">
+                <div class="progress-bar">
+                    <div id="progressBar" class="progress-fill"></div>
+                </div>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">40</div>
-                <div class="stat-label">Words Goal</div>
-            </div>
-        </div>
-
-        <div class="progress-bar">
-            <div id="progressBar" class="progress-fill"></div>
-        </div>
-
-        <div id="foundWords" class="found-words"></div>
+            
+            <div id="foundWords" class="found-words" aria-label="List of found words"></div>
+        </main>
     </div>
-
     <script src="app.js" type="text/javascript"></script>
-
 </body>
-
 </html>
