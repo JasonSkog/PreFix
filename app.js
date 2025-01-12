@@ -150,33 +150,8 @@ class Game {
     }
 
     setupPointsExplanation() {
-        const explanationHTML = `
-            <div class="info-box p-4 bg-gray-100 rounded-lg mb-4">
-                <h3 class="font-bold mb-2">How Points Work:</h3>
-                <p class="mb-2">Points are awarded based on word frequency in everyday English:</p>
-                <ul class="list-disc pl-5">
-                    <li class="mb-1"><span class="font-semibold">1 point:</span> Common words (e.g., 'brother', 'present')</li>
-                    <li class="mb-1"><span class="font-semibold">2 points:</span> Less common words (e.g., 'broker', 'pristine')</li>
-                    <li class="mb-1"><span class="font-semibold">3 points:</span> Rare or challenging words (e.g., 'brooding', 'prescient')</li>
-                </ul>
-            </div>
-            <div class="info-box p-4 bg-gray-100 rounded-lg mb-4">
-                <h3 class="font-bold mb-2">Achievement Levels:</h3>
-                <ul class="list-disc pl-5">
-                    <li class="mb-1"><span class="font-semibold">Budding Builder:</span> Find 15 words</li>
-                    <li class="mb-1"><span class="font-semibold">Promising Word Nerd:</span> Find 30 words</li>
-                    <li class="mb-1"><span class="font-semibold">Pro Prefixer:</span> Find 40 words</li>
-                </ul>
-            </div>
-        `;
-
-        const container = document.createElement('div');
-        container.innerHTML = explanationHTML;
-        
-        const gameHeader = document.querySelector('.game-header');
-        if (gameHeader) {
-            gameHeader.parentNode.insertBefore(container, gameHeader.nextSibling);
-        }
+        // Info boxes are now part of the HTML structure
+        return;
     }
 
     updateAchievements() {
@@ -242,10 +217,11 @@ class Game {
             e.preventDefault();
             const word = input.value.trim();
             
-            // Clear message before new submission
+            // Only show message if form was actually submitted
             this.clearMessage();
             
-            if (!word) {
+            // Don't show error if the input is empty and user is still typing
+            if (!word && e.type === 'submit') {
                 this.showMessage("Please enter a word", false);
                 return;
             }
