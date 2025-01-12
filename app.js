@@ -217,49 +217,35 @@ class Game {
             e.preventDefault();
             const word = input.value.trim();
             
-            // Only show message if form was actually submitted
-            this.clearMessage();
-            
-            // Don't show error if the input is empty and user is still typing
-            if (!word && e.type === 'submit') {
-                this.showMessage("Please enter a word", false);
-                return;
-            }
+            if (e.type === 'submit') {
+                this.clearMessage();
+                
+                if (!word) {
+                    this.showMessage("Please enter a word", false);
+                    return;
+                }
 
-            const result = await this.submitWord(word);
-            this.showMessage(result.message, result.success);
+                const result = await this.submitWord(word);
+                this.showMessage(result.message, result.success);
 
-            if (result.success) {
-                input.value = ""; // Clear input only on success
+                if (result.success) {
+                    input.value = ""; // Clear input only on success
+                }
             }
             
             input.focus();
         };
 
-        // Remove existing listeners if any
-        const newForm = form.cloneNode(true);
-        form.parentNode.replaceChild(newForm, form);
-        
-        // Re-get elements after clone
-        const newInput = document.getElementById("wordInput");
-        const newSubmitBtn = document.querySelector("button[type='submit']");
-        
         // Add form submit listener
-        newForm.addEventListener("submit", handleSubmit);
+        form.addEventListener("submit", handleSubmit);
 
-        // Enable normal keyboard input
-        newInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
+        // Only add click listener to submit button if needed
+        if (submitBtn) {
+            submitBtn.addEventListener("click", (e) => {
                 e.preventDefault();
-                newForm.dispatchEvent(new Event('submit'));
-            }
-        });
-
-        // Only add click listener to submit button
-        newSubmitBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            newForm.dispatchEvent(new Event('submit'));
-        });
+                form.dispatchEvent(new Event('submit'));
+            });
+        }
     }
 
     clearMessage() {
