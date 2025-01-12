@@ -117,7 +117,7 @@ this.setupEventListeners();
             this.keyboard = new VirtualKeyboard(document.getElementById('wordInput'));
   }
 
-  setupPointsExplanation() {
+  setupPointsExplanation()
     const explanationHTML = `
       <div class="info-box p-4 bg-gray-100 rounded-lg mb-4">
         <h3 class="font-bold mb-2">How Points Work:</h3>
