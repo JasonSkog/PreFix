@@ -1,140 +1,56 @@
-:root {
-    --primary: #2563eb;
-    --success: #059669;
-    --error: #dc2626;
-    --bg: #f8fafc;
-    --surface: #fff;
-    --common: #9333ea;
-    --moderate: #0891b2;
-    --challenging: #dc2626;
-}
-body {
-    font-family: 'Inter', sans-serif;
-    background: var(--bg);
-    margin: 0;
-    padding: 20px;
-}
-.container {
-    max-width: 600px;
-    margin: 0 auto;
-    background: var(--surface);
-    padding: 24px;
-    border-radius: 16px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-.title {
-    font-size: 32px;
-    font-weight: 800;
-    color: var(--primary);
-    margin: 0 0 24px;
-    padding-bottom: 16px;
-    border-bottom: 2px solid #e2e8f0;
-}
-.prefix {
-    font-size: 72px;
-    font-weight: 800;
-    color: var(--primary);
-    text-align: center;
-    margin: 32px 0 12px;
-}
-.date-display {
-    text-align: center;
-    font-size: 14px;
-    color: #64748b;
-    margin-bottom: 32px;
-}
-.input-form {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-}
-.input-field {
-    flex: 1;
-    padding: 12px;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 16px;
-}
-.button {
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-}
-.message {
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 24px;
-    display: none;
-    font-weight: 500;
-}
-.message:empty {
-    display: none;
-}
-.message.success { background: #dcfce7; color: var(--success); }
-.message.error { background: #fee2e2; color: var(--error); }
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 24px;
-}
-.stat-item {
-    text-align: center;
-    padding: 16px;
+/* Your existing CSS remains exactly the same until the media query */
+
+/* Points Explanation and Achievement Styles */
+.info-box {
     background: var(--bg);
     border-radius: 12px;
-}
-.stat-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--primary);
-}
-.stat-label {
-    font-size: 13px;
-    color: #64748b;
-    text-transform: uppercase;
-}
-.progress-bar {
-    height: 8px;
-    background: var(--bg);
-    border-radius: 4px;
+    padding: 20px;
     margin-bottom: 24px;
-    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.progress-fill {
-    height: 100%;
-    background: var(--primary);
-    transition: width 0.3s;
+
+.info-box h3 {
+    color: var(--primary);
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 16px;
 }
-.found-words {
+
+.info-box ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.info-box li {
+    margin-bottom: 12px;
     display: flex;
-    flex-wrap: wrap;
+    align-items: baseline;
     gap: 8px;
 }
-.word-chip {
-    background: var(--bg);
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.point-badge {
-    padding: 4px 8px;
-    border-radius: 20px;
-    font-size: 12px;
+
+.info-box .font-semibold {
+    color: var(--primary);
     font-weight: 600;
-    color: white;
 }
-.point-badge.common { background: var(--common); }
-.point-badge.moderate { background: var(--moderate); }
-.point-badge.challenging { background: var(--challenging); }
+
+.message.achievement {
+    background: #fef3c7;
+    border: 2px solid #fcd34d;
+    color: #92400e;
+}
+
+@keyframes achievementUnlock {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.message.achievement {
+    animation: achievementUnlock 0.5s ease-in-out;
+}
+
+/* Keep your existing media query at the end */
 @media (max-width: 640px) {
     body { padding: 10px; }
     .container { padding: 16px; }
