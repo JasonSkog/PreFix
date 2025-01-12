@@ -1,3 +1,83 @@
+// Add this at the very beginning of your JavaScript file
+class VirtualKeyboard {
+    constructor(inputElement) {
+        this.input = inputElement;
+        this.createKeyboard();
+        this.currentValue = '';
+    }
+
+    createKeyboard() {
+        const keyboard = document.createElement('div');
+        keyboard.className = 'virtual-keyboard';
+
+        const layout = [
+            ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+            ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+            ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+        ];
+
+        // Create regular letter keys
+        layout.forEach(row => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'keyboard-row';
+            
+            row.forEach(key => {
+                const keyButton = document.createElement('button');
+                keyButton.className = 'key';
+                keyButton.textContent = key;
+                keyButton.addEventListener('click', () => this.handleKeyPress(key));
+                rowDiv.appendChild(keyButton);
+            });
+            
+            keyboard.appendChild(rowDiv);
+        });
+
+        // Add bottom row with special keys
+        const bottomRow = document.createElement('div');
+        bottomRow.className = 'keyboard-row';
+
+        // Backspace key
+        const backspace = document.createElement('button');
+        backspace.className = 'key wide';
+        backspace.textContent = '⌫';
+        backspace.addEventListener('click', () => this.handleBackspace());
+        
+        // Space key
+        const space = document.createElement('button');
+        space.className = 'key space';
+        space.textContent = 'space';
+        space.addEventListener('click', () => this.handleKeyPress(' '));
+        
+        // Enter key
+        const enter = document.createElement('button');
+        enter.className = 'key wide';
+        enter.textContent = '↵';
+        enter.addEventListener('click', () => this.handleEnter());
+
+        bottomRow.appendChild(backspace);
+        bottomRow.appendChild(space);
+        bottomRow.appendChild(enter);
+        keyboard.appendChild(bottomRow);
+
+        document.body.appendChild(keyboard);
+    }
+
+    handleKeyPress(key) {
+        this.currentValue = this.input.value + key;
+        this.input.value = this.currentValue;
+        this.input.dispatchEvent(new Event('input'));
+    }
+
+    handleBackspace() {
+        this.currentValue = this.input.value.slice(0, -1);
+        this.input.value = this.currentValue;
+        this.input.dispatchEvent(new Event('input'));
+    }
+
+    handleEnter() {
+        this.input.form.dispatchEvent(new Event('submit'));
+    }
+}
 class Game {
   constructor() {
     // Previous constructor code remains the same
@@ -32,6 +112,9 @@ class Game {
     
     document.getElementById("wordInput").placeholder = 
       "Enter a 2-syllable word starting with the prefix above...";
+this.setupEventListeners();
+    if (window.innerWidth <= 640) {
+            this.keyboard = new VirtualKeyboard(document.getElementById('wordInput'));
   }
 
   setupPointsExplanation() {
