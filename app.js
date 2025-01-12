@@ -28,10 +28,13 @@ class Game {
         this.setupPointsExplanation();
         this.updateUI();
         this.setupEventListeners();
+        this.clearMessage();
         
-        document.getElementById("wordInput").placeholder = 
-            "Enter a 2-syllable word starting with the prefix above...";
-    
+        const input = document.getElementById("wordInput");
+        if (input) {
+            input.placeholder = "Enter a 2-syllable word starting with the prefix above...";
+            input.value = ""; // Ensure input is clear on start
+            input.removeAttribute('disabled'); // Enable input
         }
     }
 
@@ -190,14 +193,7 @@ class Game {
         if (newAchievement && newAchievement !== this.state.currentAchievement) {
             this.state.currentAchievement = newAchievement;
             this.saveState();
-            
-            const messageDiv = document.getElementById("message");
-            messageDiv.textContent = `Achievement Unlocked: ${newAchievement}!`;
-            messageDiv.className = "message success achievement";
-            messageDiv.style.display = "block";
-            setTimeout(() => {
-                messageDiv.style.display = "none";
-            }, 5000);
+            this.showMessage(`Achievement Unlocked: ${newAchievement}!`, true);
         }
     }
 
@@ -231,27 +227,84 @@ class Game {
     setupEventListeners() {
         const form = document.getElementById("wordForm");
         const input = document.getElementById("wordInput");
-        const submitBtn = form.querySelector("button");
+        const submitBtn = document.querySelector("button[type='submit']");
         const messageDiv = document.getElementById("message");
+
+        if (!form || !input || !submitBtn || !messageDiv) {
+            console.error("Required DOM elements not found");
+            return;
+        }
+
+        // Enable input field
+        input.removeAttribute('disabled');
 
         const handleSubmit = async (e) => {
             e.preventDefault();
-            const result = await this.submitWord(input.value);
-            messageDiv.textContent = result.message;
-            messageDiv.className = `message ${result.success ? "success" : "error"}`;
-            messageDiv.style.display = "block";
+            const word = input.value.trim();
+            
+            // Clear message before new submission
+            this.clearMessage();
+            
+            if (!word) {
+                this.showMessage("Please enter a word", false);
+                return;
+            }
 
-            if (result.success) input.value = "";
-            setTimeout(() => (messageDiv.style.display = "none"), 3000);
+            const result = await this.submitWord(word);
+            this.showMessage(result.message, result.success);
+
+            if (result.success) {
+                input.value = ""; // Clear input only on success
+            }
+            
             input.focus();
         };
 
-        form.addEventListener("submit", handleSubmit);
-        submitBtn.addEventListener("click", handleSubmit);
-        submitBtn.addEventListener("touchstart", (e) => {
-            e.preventDefault();
-            handleSubmit(e);
+        // Remove existing listeners if any
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        // Re-get elements after clone
+        const newInput = document.getElementById("wordInput");
+        const newSubmitBtn = document.querySelector("button[type='submit']");
+        
+        // Add form submit listener
+        newForm.addEventListener("submit", handleSubmit);
+
+        // Enable normal keyboard input
+        newInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                newForm.dispatchEvent(new Event('submit'));
+            }
         });
+
+        // Only add click listener to submit button
+        newSubmitBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            newForm.dispatchEvent(new Event('submit'));
+        });
+    }
+
+    clearMessage() {
+        const messageDiv = document.getElementById("message");
+        if (messageDiv) {
+            messageDiv.style.display = "none";
+            messageDiv.textContent = "";
+        }
+    }
+
+    showMessage(text, isSuccess) {
+        const messageDiv = document.getElementById("message");
+        if (messageDiv) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${isSuccess ? "success" : "error"}`;
+            messageDiv.style.display = "block";
+            
+            if (isSuccess) {
+                setTimeout(() => this.clearMessage(), 3000);
+            }
+        }
     }
 }
 
