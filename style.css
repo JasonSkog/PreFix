@@ -16,6 +16,7 @@ body {
     background: var(--bg);
     margin: 0;
     padding: 20px;
+    min-height: 100vh;
 }
 
 .container {
@@ -63,6 +64,14 @@ body {
     border: 2px solid #e2e8f0;
     border-radius: 8px;
     font-size: 16px;
+    background-color: var(--surface);
+    color: #1a1a1a;
+}
+
+.input-field:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .button {
@@ -73,6 +82,16 @@ body {
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.button:hover {
+    background-color: #1d4ed8;
+}
+
+.button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .message {
@@ -89,12 +108,14 @@ body {
 
 .message.success { 
     background: #dcfce7; 
-    color: var(--success); 
+    color: var(--success);
+    display: block;
 }
 
 .message.error { 
     background: #fee2e2; 
-    color: var(--error); 
+    color: var(--error);
+    display: block;
 }
 
 .stats-grid {
@@ -134,7 +155,8 @@ body {
 .progress-fill {
     height: 100%;
     background: var(--primary);
-    transition: width 0.3s;
+    transition: width 0.3s ease-out;
+    width: 0;
 }
 
 .found-words {
@@ -160,6 +182,8 @@ body {
     font-size: 12px;
     font-weight: 600;
     color: white;
+    min-width: 24px;
+    text-align: center;
 }
 
 .point-badge.common { background: var(--common); }
@@ -205,12 +229,26 @@ body {
     border: 2px solid #fcd34d;
     color: #92400e;
     animation: achievementUnlock 0.5s ease-in-out;
+    display: block;
 }
 
 @keyframes achievementUnlock {
     0% { transform: scale(1); }
     50% { transform: scale(1.1); }
     100% { transform: scale(1); }
+}
+
+/* Accessibility class */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 /* Mobile Responsive Styles */
@@ -221,7 +259,6 @@ body {
     
     .container { 
         padding: 16px;
-        padding-bottom: 240px;
     }
     
     .input-form { 
@@ -229,16 +266,7 @@ body {
     }
     
     .word-chip { 
-        width: 100%; 
+        width: calc(100% - 32px); /* Account for padding */
         justify-content: space-between; 
-    }
-
-    .virtual-keyboard {
-        display: block;
-    }
-    
-    .input-field {
-        cursor: default;
-        pointer-events: none;
     }
 }
