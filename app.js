@@ -19,7 +19,7 @@ class Game {
         this.achievements = [
             { name: "Word Explorer", threshold: 0.25, className: "achievement-1" },
             { name: "Word Enthusiast", threshold: 0.50, className: "achievement-2" },
-            { name: "Word Master", threshold: 0.75, className: "achievement-3" },
+            { name: "Word Expert", threshold: 0.75, className: "achievement-3" },
             { name: "Word Champion", threshold: 1.0, className: "achievement-4" }
         ];
         
@@ -68,14 +68,35 @@ class Game {
             );
             const data = await response.json();
             
-            // Filter out plurals and count valid words
-            const validWords = data.filter(word => 
+            // First find all valid words of the correct syllable count
+            let validWords = data.filter(word => 
                 word.numSyllables === this.state.syllableCount &&
-                !word.tags?.includes('pl') &&
                 !word.tags?.includes('prop')
             );
+
+            // Then filter out plural/singular pairs
+            const filteredWords = validWords.filter(wordData => {
+                // Skip if it's explicitly marked as plural
+                if (wordData.tags?.includes('pl')) {
+                    return false;
+                }
+
+                // Get the word string
+                const word = wordData.word;
+                
+                // Look for a singular form of this word in our valid words
+                const singularForm = this.getSingularForm(word);
+                if (singularForm) {
+                    const hasSingular = validWords.some(w => w.word === singularForm);
+                    if (hasSingular) {
+                        return false; // Skip this word if we found its singular
+                    }
+                }
+
+                return true;
+            });
             
-            this.state.possibleWords = validWords.length;
+            this.state.possibleWords = filteredWords.length;
             this.saveState();
         } catch (error) {
             console.error('Error estimating possible words:', error);
