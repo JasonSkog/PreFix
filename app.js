@@ -112,10 +112,29 @@ class Game {
 
     async validateWord(word) {
         try {
-            // First check if this word is a plural of an already found word
+            // Check if this word is a plural of an already found word
             const singularForm = this.getSingularForm(word);
             if (singularForm && this.state.foundWords[singularForm]) {
                 return false;
+            }
+
+            // Check if we already have the plural form of this word
+            // Simple 's' plural
+            const simplePlural = word + 's';
+            if (this.state.foundWords[simplePlural]) {
+                return false;
+            }
+            // 'es' plural
+            const esPlural = word + 'es';
+            if (this.state.foundWords[esPlural]) {
+                return false;
+            }
+            // 'y' to 'ies' plural
+            if (word.endsWith('y')) {
+                const iesPlural = word.slice(0, -1) + 'ies';
+                if (this.state.foundWords[iesPlural]) {
+                    return false;
+                }
             }
 
             const response = await fetch(
@@ -158,10 +177,20 @@ class Game {
             return { success: false, message: "Word already found!" };
         }
 
-        // Check for plural of already found word
+        // Check for plural forms
         const singularForm = this.getSingularForm(word);
         if (singularForm && this.state.foundWords[singularForm]) {
             return { success: false, message: "Plural form not allowed - you already found the singular!" };
+        }
+        // Check for existing plural of this word
+        const simplePlural = word + 's';
+        const esPlural = word + 'es';
+        const iesPlural = word.endsWith('y') ? word.slice(0, -1) + 'ies' : null;
+        
+        if (this.state.foundWords[simplePlural] || 
+            this.state.foundWords[esPlural] || 
+            (iesPlural && this.state.foundWords[iesPlural])) {
+            return { success: false, message: "Singular form not allowed - you already found the plural!" };
         }
 
         const isValid = await this.validateWord(word);
