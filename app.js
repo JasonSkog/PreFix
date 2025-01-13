@@ -64,19 +64,35 @@ class Game {
     async estimatePossibleWords() {
         try {
             const response = await fetch(
-                `https://api.datamuse.com/words?sp=${this.state.prefix}*&md=s&max=1000`
+                `https://api.datamuse.com/words?sp=${this.state.prefix}*&md=sf&max=1000`
             );
             const data = await response.json();
             
-            this.state.possibleWords = data.filter(word => 
-                word.numSyllables === this.state.syllableCount
-            ).length;
+            // Filter out plurals and count valid words
+            const validWords = data.filter(word => 
+                word.numSyllables === this.state.syllableCount &&
+                !word.tags?.includes('pl') &&
+                !word.tags?.includes('prop')
+            );
             
+            this.state.possibleWords = validWords.length;
             this.saveState();
         } catch (error) {
             console.error('Error estimating possible words:', error);
             this.state.possibleWords = 20; // Fallback value
         }
+    }
+
+    getSingularForm(word) {
+        // Basic English plural rules
+        if (word.endsWith('ies')) {
+            return word.slice(0, -3) + 'y';
+        } else if (word.endsWith('es')) {
+            return word.slice(0, -2);
+        } else if (word.endsWith('s')) {
+            return word.slice(0, -1);
+        }
+        return null;
     }
 
     loadState() {
@@ -96,6 +112,12 @@ class Game {
 
     async validateWord(word) {
         try {
+            // First check if this word is a plural of an already found word
+            const singularForm = this.getSingularForm(word);
+            if (singularForm && this.state.foundWords[singularForm]) {
+                return false;
+            }
+
             const response = await fetch(
                 `https://api.datamuse.com/words?sp=${word}&md=sf&max=1`
             );
@@ -106,11 +128,15 @@ class Game {
             const wordData = data[0];
             const numSyllables = wordData.numSyllables || 0;
             
+            // Check if the word is plural (using Datamuse tags)
+            const isPlural = wordData.tags?.includes('pl');
+            
             return (
                 wordData.word === word &&
                 numSyllables === this.state.syllableCount &&
                 !wordData.tags?.includes('prop') &&
-                word === word.toLowerCase()
+                word === word.toLowerCase() &&
+                !isPlural // Reject plurals
             );
         } catch (error) {
             console.error('API Error:', error);
@@ -130,6 +156,12 @@ class Game {
         }
         if (this.state.foundWords[word]) {
             return { success: false, message: "Word already found!" };
+        }
+
+        // Check for plural of already found word
+        const singularForm = this.getSingularForm(word);
+        if (singularForm && this.state.foundWords[singularForm]) {
+            return { success: false, message: "Plural form not allowed - you already found the singular!" };
         }
 
         const isValid = await this.validateWord(word);
@@ -312,4 +344,3 @@ class Game {
 }
 
 document.addEventListener("DOMContentLoaded", () => new Game());
-
