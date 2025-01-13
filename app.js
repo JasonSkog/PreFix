@@ -19,9 +19,14 @@ class Game {
         this.achievements = [
             { name: "Word Explorer", threshold: 0.25, className: "achievement-1" },
             { name: "Word Enthusiast", threshold: 0.50, className: "achievement-2" },
-            { name: "Word Expert", threshold: 0.75, className: "achievement-3" },
+            { name: "Word Master", threshold: 0.75, className: "achievement-3" },
             { name: "Word Champion", threshold: 1.0, className: "achievement-4" }
         ];
+
+        // List of common plural endings to check
+        this.pluralEndings = ['s', 'es', 'ers', 'ors', 'ies'];
+        // List of exceptions that end in 's' but aren't plurals
+        this.nonPluralExceptions = ['ss', 'ous', 'ics'];
         
         this.defaultState = {
             prefix: this.getDailyPrefix(),
@@ -61,6 +66,22 @@ class Game {
         return this.allPrefixes[index];
     }
 
+    isLikelyPlural(word) {
+        // Check for common exceptions first
+        if (this.nonPluralExceptions.some(ending => word.endsWith(ending))) {
+            return false;
+        }
+        
+        // Check for common plural endings
+        return this.pluralEndings.some(ending => {
+            if (ending === 's') {
+                // Special case for 's' ending to avoid catching words like 'discuss'
+                return word.endsWith('s') && !word.endsWith('ss');
+            }
+            return word.endsWith(ending);
+        });
+    }
+
     async estimatePossibleWords() {
         try {
             const response = await fetch(
@@ -68,35 +89,16 @@ class Game {
             );
             const data = await response.json();
             
-            // First find all valid words of the correct syllable count
-            let validWords = data.filter(word => 
-                word.numSyllables === this.state.syllableCount &&
-                !word.tags?.includes('prop')
-            );
-
-            // Then filter out plural/singular pairs
-            const filteredWords = validWords.filter(wordData => {
-                // Skip if it's explicitly marked as plural
-                if (wordData.tags?.includes('pl')) {
-                    return false;
-                }
-
-                // Get the word string
-                const word = wordData.word;
-                
-                // Look for a singular form of this word in our valid words
-                const singularForm = this.getSingularForm(word);
-                if (singularForm) {
-                    const hasSingular = validWords.some(w => w.word === singularForm);
-                    if (hasSingular) {
-                        return false; // Skip this word if we found its singular
-                    }
-                }
-
-                return true;
+            // Filter valid words using all our plural checks
+            const validWords = data.filter(word => {
+                const wordStr = word.word;
+                return !this.isLikelyPlural(wordStr) &&
+                       word.numSyllables === this.state.syllableCount &&
+                       !word.tags?.includes('prop') &&
+                       !word.tags?.includes('pl');
             });
             
-            this.state.possibleWords = filteredWords.length;
+            this.state.possibleWords = validWords.length;
             this.saveState();
         } catch (error) {
             console.error('Error estimating possible words:', error);
@@ -133,6 +135,11 @@ class Game {
 
     async validateWord(word) {
         try {
+            // Check for likely plurals before API call
+            if (this.isLikelyPlural(word)) {
+                return false;
+            }
+
             // Check if this word is a plural of an already found word
             const singularForm = this.getSingularForm(word);
             if (singularForm && this.state.foundWords[singularForm]) {
@@ -168,7 +175,7 @@ class Game {
             const wordData = data[0];
             const numSyllables = wordData.numSyllables || 0;
             
-            // Check if the word is plural (using Datamuse tags)
+            // Double-check with Datamuse tags
             const isPlural = wordData.tags?.includes('pl');
             
             return (
@@ -176,7 +183,7 @@ class Game {
                 numSyllables === this.state.syllableCount &&
                 !wordData.tags?.includes('prop') &&
                 word === word.toLowerCase() &&
-                !isPlural // Reject plurals
+                !isPlural
             );
         } catch (error) {
             console.error('API Error:', error);
