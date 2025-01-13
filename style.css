@@ -8,6 +8,11 @@
     --common: #9333ea;
     --moderate: #0891b2;
     --challenging: #dc2626;
+    /* Achievement level colors */
+    --achievement-1: #818cf8;
+    --achievement-2: #6366f1;
+    --achievement-3: #4f46e5;
+    --achievement-4: #4338ca;
 }
 
 /* Base Styles */
@@ -37,21 +42,37 @@ body {
     border-bottom: 2px solid #e2e8f0;
 }
 
+/* Game Info Section */
+.game-info {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
 .prefix {
     font-size: 72px;
     font-weight: 800;
     color: var(--primary);
-    text-align: center;
     margin: 32px 0 12px;
+}
+
+.syllable-count {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--bg);
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: inline-block;
+    margin: 8px 0;
 }
 
 .date-display {
     text-align: center;
     font-size: 14px;
     color: #64748b;
-    margin-bottom: 32px;
 }
 
+/* Input Form */
 .input-form {
     display: flex;
     gap: 12px;
@@ -94,6 +115,7 @@ body {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
+/* Messages */
 .message {
     padding: 12px;
     border-radius: 8px;
@@ -106,18 +128,19 @@ body {
     display: none;
 }
 
-.message.success { 
-    background: #dcfce7; 
+.message.success {
+    background: #dcfce7;
     color: var(--success);
     display: block;
 }
 
-.message.error { 
-    background: #fee2e2; 
+.message.error {
+    background: #fee2e2;
     color: var(--error);
     display: block;
 }
 
+/* Stats Grid */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -144,21 +167,53 @@ body {
     text-transform: uppercase;
 }
 
-.progress-bar {
-    height: 8px;
-    background: var(--bg);
-    border-radius: 4px;
+/* Progress Bar */
+.progress-container {
     margin-bottom: 24px;
+}
+
+.progress-bar {
+    height: 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    margin-bottom: 8px;
     overflow: hidden;
+    position: relative;
 }
 
 .progress-fill {
     height: 100%;
     background: var(--primary);
-    transition: width 0.3s ease-out;
-    width: 0;
+    transition: width 0.5s ease-out;
 }
 
+.progress-markers {
+    position: relative;
+    height: 20px;
+    margin-top: -10px;
+}
+
+.marker {
+    position: absolute;
+    width: 4px;
+    height: 12px;
+    background: #e2e8f0;
+    transform: translateX(-50%);
+}
+
+.marker-25 { left: 25%; }
+.marker-50 { left: 50%; }
+.marker-75 { left: 75%; }
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+/* Found Words */
 .found-words {
     display: flex;
     flex-wrap: wrap;
@@ -190,7 +245,25 @@ body {
 .point-badge.moderate { background: var(--moderate); }
 .point-badge.challenging { background: var(--challenging); }
 
-/* Info Box and Achievement Styles */
+/* Achievement Styles */
+.achievement-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 16px;
+}
+
+.achievement-1 { background: var(--achievement-1); }
+.achievement-2 { background: var(--achievement-2); }
+.achievement-3 { background: var(--achievement-3); }
+.achievement-4 { background: var(--achievement-4); }
+
+/* Info Section */
 .info-section {
     margin-top: 48px;
     border-top: 2px solid #e2e8f0;
@@ -230,21 +303,18 @@ body {
     font-weight: 600;
 }
 
-.message.achievement {
-    background: #fef3c7;
-    border: 2px solid #fcd34d;
-    color: #92400e;
-    animation: achievementUnlock 0.5s ease-in-out;
-    display: block;
-}
-
-@keyframes achievementUnlock {
+/* Animations */
+@keyframes achievementPulse {
     0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+    50% { transform: scale(1.05); }
     100% { transform: scale(1); }
 }
 
-/* Accessibility class */
+.achievement-unlock {
+    animation: achievementPulse 0.5s ease-in-out;
+}
+
+/* Accessibility */
 .sr-only {
     position: absolute;
     width: 1px;
@@ -259,21 +329,35 @@ body {
 
 /* Mobile Responsive Styles */
 @media (max-width: 640px) {
-    body { 
-        padding: 10px; 
+    body {
+        padding: 10px;
     }
     
-    .container { 
+    .container {
         padding: 16px;
     }
     
-    .input-form { 
-        flex-direction: column; 
+    .input-form {
+        flex-direction: column;
     }
     
-    .word-chip { 
-        width: calc(100% - 32px); /* Account for padding */
-        justify-content: space-between; 
+    .word-chip {
+        width: calc(100% - 32px);
+        justify-content: space-between;
+    }
+    
+    .progress-labels {
+        font-size: 10px;
+    }
+    
+    .syllable-count {
+        font-size: 16px;
+        padding: 6px 12px;
+    }
+    
+    .achievement-badge {
+        font-size: 12px;
+        padding: 6px 12px;
     }
     
     .info-box {
@@ -281,7 +365,8 @@ body {
     }
     
     .input-field {
-        font-size: 16px; /* Prevent zoom on mobile */
+        font-size: 16px;
         padding: 10px;
     }
 }
+
