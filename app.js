@@ -19,7 +19,7 @@ class Game {
         this.achievements = [
             { name: "Word Explorer", threshold: 0.25, className: "achievement-1" },
             { name: "Word Enthusiast", threshold: 0.50, className: "achievement-2" },
-            { name: "Word Master", threshold: 0.75, className: "achievement-3" },
+            { name: "Word Expert", threshold: 0.75, className: "achievement-3" },
             { name: "Word Champion", threshold: 1.0, className: "achievement-4" }
         ];
 
