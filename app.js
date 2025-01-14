@@ -111,7 +111,7 @@ class Game {
         return this.allPrefixes[index];
     }
 
-  isLikelyPlural(word) {
+isLikelyPlural(word) {
         if (this.nonPluralExceptions.some(ending => word.endsWith(ending))) {
             return false;
         }
@@ -122,7 +122,8 @@ class Game {
             return word.endsWith(ending);
         });
     }
-            async estimatePossibleWords() {
+
+    async estimatePossibleWords() {
         try {
             await this.delayIfNeeded();
             const response = await this.fetchWithTimeout(
@@ -159,49 +160,6 @@ class Game {
             }
             this.state.possibleWords = 20;
             this.state.maxPossiblePoints = 60;
-        }
-    }
-
-    async validateAndGetComplexity(word) {
-        try {
-            if (this.isLikelyPlural(word)) {
-                return { valid: false, complexity: 0 };
-            }
-
-            await this.delayIfNeeded();
-            const response = await this.fetchWithTimeout(
-                `https://api.datamuse.com/words?sp=${word}&md=sf,f&max=1`
-            );
-            const data = await response.json();
-            
-            if (data.length === 0) return { valid: false, complexity: 0 };
-            
-            const wordData = data[0];
-            const numSyllables = wordData.numSyllables || 0;
-            const isPlural = wordData.tags?.includes('pl');
-            
-            const valid = (
-                wordData.word === word &&
-                numSyllables === this.state.syllableCount &&
-                !wordData.tags?.includes('prop') &&
-                word === word.toLowerCase() &&
-                !isPlural
-            );
-
-            if (!valid) return { valid: false, complexity: 0 };
-
-            const frequencyTag = wordData.tags?.find((tag) => tag.startsWith("f:"));
-            let complexity = 3;
-            if (frequencyTag) {
-                const frequency = parseFloat(frequencyTag.split(":")[1]);
-                if (frequency > 10) complexity = 1;
-                else if (frequency > 1) complexity = 2;
-            }
-
-            return { valid: true, complexity };
-        } catch (error) {
-            console.error('API Error:', error);
-            return { valid: false, complexity: 0 };
         }
     }
 
@@ -474,6 +432,6 @@ class Game {
     }
 }
 
-// Initialize the game when the DOM is loaded
+}
+
 document.addEventListener("DOMContentLoaded", () => new Game());
-    }
