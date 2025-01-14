@@ -7,9 +7,7 @@ class Game {
         ];
         
         this.twoLetterCombos = [
-            // Most productive combinations
             'co', 're', 'in', 'de', 'pr', 'pa', 'ma', 'di', 'ex', 'un',
-            // Highly productive
             'ac', 'ad', 'ap', 'ba', 'ca', 'ce', 'ci', 'en', 'fo', 'im',
             'me', 'mi', 'mo', 'pe', 'po', 'ra', 'sa', 'se', 'su', 'te'
         ];
@@ -23,9 +21,7 @@ class Game {
             { name: "Word Champion", threshold: 1.0, className: "achievement-4" }
         ];
 
-        // List of common plural endings to check
         this.pluralEndings = ['s', 'es', 'ers', 'ors', 'ies'];
-        // List of exceptions that end in 's' but aren't plurals
         this.nonPluralExceptions = ['ss', 'ous', 'ics'];
         
         this.defaultState = {
@@ -43,7 +39,39 @@ class Game {
         };
         
         this.state = this.loadState() || this.defaultState;
+        this.lastApiCall = 0; // Track timing of API calls
+        this.API_DELAY = 100; // Delay between API calls in ms
+        this.API_TIMEOUT = 5000; // API timeout in ms
+        
         this.initializeGame();
+    }
+
+    // Helper method for API rate limiting
+    async delayIfNeeded() {
+        const now = Date.now();
+        const timeSinceLastCall = now - this.lastApiCall;
+        if (timeSinceLastCall < this.API_DELAY) {
+            await new Promise(resolve => setTimeout(resolve, this.API_DELAY - timeSinceLastCall));
+        }
+        this.lastApiCall = Date.now();
+    }
+
+    // Helper method for API calls with timeout
+    async fetchWithTimeout(url, options = {}) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.API_TIMEOUT);
+        
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            throw error;
+        }
     }
 
     async initializeGame() {
@@ -67,47 +95,135 @@ class Game {
     }
 
     isLikelyPlural(word) {
-        // Check for common exceptions first
         if (this.nonPluralExceptions.some(ending => word.endsWith(ending))) {
             return false;
         }
-        
-        // Check for common plural endings
         return this.pluralEndings.some(ending => {
             if (ending === 's') {
-                // Special case for 's' ending to avoid catching words like 'discuss'
                 return word.endsWith('s') && !word.endsWith('ss');
             }
             return word.endsWith(ending);
         });
     }
 
-async estimatePossibleWords() {
-    try {
-        const response = await fetch(
-            `https://api.datamuse.com/words?sp=${this.state.prefix}*&md=sf&max=1000`
-        );
-        const data = await response.json();
+    async estimatePossibleWords() {
+        try {
+            await this.delayIfNeeded();
+            const response = await this.fetchWithTimeout(
+                `https://api.datamuse.com/words?sp=${this.state.prefix}*&md=sf&max=1000`
+            );
+            const data = await response.json();
             
-            // Filter valid words using all our plural checks
             const validWords = data.filter(word => {
-            const wordStr = word.word;
-            return !this.isLikelyPlural(wordStr) &&
-                   word.numSyllables === this.state.syllableCount &&
-                   !word.tags?.includes('prop') &&
-                   !word.tags?.includes('pl');
-        });
+                const wordStr = word.word;
+                return !this.isLikelyPlural(wordStr) &&
+                       word.numSyllables === this.state.syllableCount &&
+                       !word.tags?.includes('prop') &&
+                       !word.tags?.includes('pl');
+            });
             
             this.state.possibleWords = validWords.length;
+            
+            let maxPoints = 0;
+            for (const word of validWords) {
+                const frequency = word.tags?.find(tag => tag.startsWith('f:'));
+                const points = frequency ? 
+                    (parseFloat(frequency.split(':')[1]) > 10 ? 1 : 
+                     parseFloat(frequency.split(':')[1]) > 1 ? 2 : 3) 
+                    : 3;
+                maxPoints += points;
+            }
+            this.state.maxPossiblePoints = maxPoints;
+            
             this.saveState();
         } catch (error) {
             console.error('Error estimating possible words:', error);
-            this.state.possibleWords = 20; // Fallback value
+            if (error.name === 'AbortError') {
+                console.error('API request timed out');
+            }
+            this.state.possibleWords = 20;
+            this.state.maxPossiblePoints = 60;
         }
     }
 
+    async validateWord(word) {
+        try {
+            if (this.isLikelyPlural(word)) {
+                return false;
+            }
+
+            const singularForm = this.getSingularForm(word);
+            if (singularForm && this.state.foundWords[singularForm]) {
+                return false;
+            }
+
+            const simplePlural = word + 's';
+            const esPlural = word + 'es';
+            const iesPlural = word.endsWith('y') ? word.slice(0, -1) + 'ies' : null;
+            
+            if (this.state.foundWords[simplePlural] || 
+                this.state.foundWords[esPlural] || 
+                (iesPlural && this.state.foundWords[iesPlural])) {
+                return false;
+            }
+
+            await this.delayIfNeeded();
+            const response = await this.fetchWithTimeout(
+                `https://api.datamuse.com/words?sp=${word}&md=sf&max=1`
+            );
+            const data = await response.json();
+            
+            if (data.length === 0) return false;
+            
+            const wordData = data[0];
+            const numSyllables = wordData.numSyllables || 0;
+            const isPlural = wordData.tags?.includes('pl');
+            
+            return (
+                wordData.word === word &&
+                numSyllables === this.state.syllableCount &&
+                !wordData.tags?.includes('prop') &&
+                word === word.toLowerCase() &&
+                !isPlural
+            );
+        } catch (error) {
+            console.error('API Error:', error);
+            if (error.name === 'AbortError') {
+                this.showMessage('API request timed out. Please try again.', false);
+            }
+            return false;
+        }
+    }
+
+    async getWordComplexity(word) {
+        try {
+            await this.delayIfNeeded();
+            const response = await this.fetchWithTimeout(
+                `https://api.datamuse.com/words?sp=${word}&md=f`
+            );
+            const data = await response.json();
+
+            if (data.length > 0 && data[0].tags) {
+                const frequencyTag = data[0].tags.find((tag) => tag.startsWith("f:"));
+                if (frequencyTag) {
+                    const frequency = parseFloat(frequencyTag.split(":")[1]);
+                    if (frequency > 10) return 1;
+                    if (frequency > 1) return 2;
+                    return 3;
+                }
+            }
+            return 3;
+        } catch (error) {
+            console.error('API Error:', error);
+            if (error.name === 'AbortError') {
+                console.error('API request timed out');
+            }
+            return 3;
+        }
+    }
+
+    // Rest of the existing methods remain the same...
     getSingularForm(word) {
-        // Basic English plural rules
         if (word.endsWith('ies')) {
             return word.slice(0, -3) + 'y';
         } else if (word.endsWith('es')) {
@@ -133,213 +249,6 @@ async estimatePossibleWords() {
         localStorage.setItem("prefixGame", JSON.stringify(this.state));
     }
 
-    async validateWord(word) {
-        try {
-            // Check for likely plurals before API call
-            if (this.isLikelyPlural(word)) {
-                return false;
-            }
-
-            // Check if this word is a plural of an already found word
-            const singularForm = this.getSingularForm(word);
-            if (singularForm && this.state.foundWords[singularForm]) {
-                return false;
-            }
-
-            // Check if we already have the plural form of this word
-            // Simple 's' plural
-            const simplePlural = word + 's';
-            if (this.state.foundWords[simplePlural]) {
-                return false;
-            }
-            // 'es' plural
-            const esPlural = word + 'es';
-            if (this.state.foundWords[esPlural]) {
-                return false;
-            }
-            // 'y' to 'ies' plural
-            if (word.endsWith('y')) {
-                const iesPlural = word.slice(0, -1) + 'ies';
-                if (this.state.foundWords[iesPlural]) {
-                    return false;
-                }
-            }
-
-            const response = await fetch(
-                `https://api.datamuse.com/words?sp=${word}&md=sf&max=1`
-            );
-            const data = await response.json();
-            
-            if (data.length === 0) return false;
-            
-            const wordData = data[0];
-            const numSyllables = wordData.numSyllables || 0;
-            
-            // Double-check with Datamuse tags
-            const isPlural = wordData.tags?.includes('pl');
-            
-            return (
-                wordData.word === word &&
-                numSyllables === this.state.syllableCount &&
-                !wordData.tags?.includes('prop') &&
-                word === word.toLowerCase() &&
-                !isPlural
-            );
-        } catch (error) {
-            console.error('API Error:', error);
-            return false;
-        }
-    }
-
-    async submitWord(word) {
-        word = word.toLowerCase().trim();
-        
-        if (!word) return { success: false, message: "Please enter a word" };
-        if (!word.startsWith(this.state.prefix.toLowerCase())) {
-            return {
-                success: false,
-                message: `Word must start with "${this.state.prefix}"`,
-            };
-        }
-        if (this.state.foundWords[word]) {
-            return { success: false, message: "Word already found!" };
-        }
-
-        // Check for plural forms
-        const singularForm = this.getSingularForm(word);
-        if (singularForm && this.state.foundWords[singularForm]) {
-            return { success: false, message: "Plural form not allowed - you already found the singular!" };
-        }
-        // Check for existing plural of this word
-        const simplePlural = word + 's';
-        const esPlural = word + 'es';
-        const iesPlural = word.endsWith('y') ? word.slice(0, -1) + 'ies' : null;
-        
-        if (this.state.foundWords[simplePlural] || 
-            this.state.foundWords[esPlural] || 
-            (iesPlural && this.state.foundWords[iesPlural])) {
-            return { success: false, message: "Singular form not allowed - you already found the plural!" };
-        }
-
-        const isValid = await this.validateWord(word);
-        if (!isValid) {
-            return { success: false, message: `Not a valid ${this.state.syllableCount}-syllable word` };
-        }
-
-        const points = await this.getWordComplexity(word);
-        
-        this.state.foundWords[word] = { 
-            points, 
-            category: this.getCategory(points) 
-        };
-        this.state.totalScore += points;
-        this.saveState();
-        this.updateUI();
-        this.updateAchievements();
-
-        return {
-            success: true,
-            message: `Found "${word}" - ${points} point${points !== 1 ? "s" : ""}!`,
-        };
-    }
-
-    getCategory(points) {
-        if (points === 1) return 'common';
-        if (points === 2) return 'moderate';
-        return 'challenging';
-    }
-
-    async getWordComplexity(word) {
-        try {
-            const response = await fetch(
-                `https://api.datamuse.com/words?sp=${word}&md=f`
-            );
-            const data = await response.json();
-
-            if (data.length > 0 && data[0].tags) {
-                const frequencyTag = data[0].tags.find((tag) => tag.startsWith("f:"));
-                if (frequencyTag) {
-                    const frequency = parseFloat(frequencyTag.split(":")[1]);
-                    if (frequency > 10) return 1;
-                    if (frequency > 1) return 2;
-                    return 3;
-                }
-            }
-            return 3;
-        } catch (error) {
-            console.error('API Error:', error);
-            return 3;
-        }
-    }
-
-    updateAchievements() {
-        const progress = Object.keys(this.state.foundWords).length / this.state.possibleWords;
-        let newAchievement = "";
-        
-        for (let i = this.achievements.length - 1; i >= 0; i--) {
-            if (progress >= this.achievements[i].threshold) {
-                newAchievement = this.achievements[i].name;
-                break;
-            }
-        }
-        
-        if (newAchievement && newAchievement !== this.state.currentAchievement) {
-            this.state.currentAchievement = newAchievement;
-            this.saveState();
-            this.showAchievementBadge(newAchievement);
-            this.showMessage(`Achievement Unlocked: ${newAchievement}!`, true);
-        }
-    }
-
-    showAchievementBadge(achievementName) {
-        const badge = document.getElementById("currentAchievement");
-        const achievement = this.achievements.find(a => a.name === achievementName);
-        
-        if (badge && achievement) {
-            badge.textContent = achievementName;
-            badge.className = `achievement-badge ${achievement.className}`;
-            badge.style.display = "block";
-            badge.classList.add("achievement-unlock");
-            
-            setTimeout(() => {
-                badge.classList.remove("achievement-unlock");
-            }, 500);
-        }
-    }
-let maxPoints = 0;
-        for (const word of validWords) {
-            const frequency = word.tags?.find(tag => tag.startsWith('f:'));
-            const points = frequency ? 
-                (parseFloat(frequency.split(':')[1]) > 10 ? 1 : 
-                 parseFloat(frequency.split(':')[1]) > 1 ? 2 : 3) 
-                : 3;
-            maxPoints += points;
-        }
-        this.state.maxPossiblePoints = maxPoints;
-        
-        this.saveState();
-    } catch (error) {
-        console.error('Error estimating possible words:', error);
-        this.state.possibleWords = 20;
-        this.state.maxPossiblePoints = 60; // Fallback value
-    }
-}
-
-updateUI() {
-    document.getElementById("currentPrefix").textContent = 
-        this.state.prefix.toUpperCase();
-    document.getElementById("syllableCount").textContent = 
-        `${this.state.syllableCount}-syllable words`;
-    document.getElementById("dateDisplay").textContent = 
-        `${this.state.day} - ${this.state.date}`;
-    document.getElementById("totalScore").textContent = 
-        this.state.totalScore;
-    document.getElementById("wordsFound").textContent = 
-        Object.keys(this.state.foundWords).length;
-    document.getElementById("wordsFoundRatio").textContent = 
-        `(out of ${this.state.possibleWords} possible)`;
-    document.getElementById("possiblePoints").textContent = 
-        this.state.maxPossiblePoints;
     updateUI() {
         document.getElementById("currentPrefix").textContent = 
             this.state.prefix.toUpperCase();
@@ -433,4 +342,5 @@ updateUI() {
     }
 }
 
+// Initialize the game when the DOM is loaded
 document.addEventListener("DOMContentLoaded", () => new Game());
