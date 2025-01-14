@@ -6,6 +6,7 @@
     --primary-light: rgba(37, 99, 235, 0.1);
     --success: #059669;
     --error: #dc2626;
+    --error-light: rgba(220, 38, 38, 0.1);
     --bg: #f8fafc;
     --surface: #fff;
     --text-primary: #1a1a1a;
@@ -132,6 +133,15 @@ body {
     box-shadow: 0 0 0 3px var(--primary-light);
 }
 
+.input-field:invalid {
+    border-color: var(--error);
+}
+
+.input-field:invalid:focus {
+    border-color: var(--error);
+    box-shadow: 0 0 0 3px var(--error-light);
+}
+
 .button {
     background: var(--primary);
     color: var(--surface);
@@ -228,8 +238,9 @@ body {
 
 .progress-fill {
     height: 100%;
+    width: 0;
     background: var(--primary);
-    transition: width 0.5s ease-out;
+    transition: width 0.5s ease-out, background-color 0.3s ease;
     will-change: width;
 }
 
@@ -294,6 +305,10 @@ body {
 
 /* Achievement Display */
 .achievement-badge {
+    display: none;
+}
+
+.achievement-badge:not([hidden]) {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-sm);
