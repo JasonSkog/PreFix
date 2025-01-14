@@ -111,7 +111,7 @@ class Game {
         return this.allPrefixes[index];
     }
 
-    isLikelyPlural(word) {
+  isLikelyPlural(word) {
         if (this.nonPluralExceptions.some(ending => word.endsWith(ending))) {
             return false;
         }
@@ -120,6 +120,8 @@ class Game {
                 return word.endsWith('s') && !word.endsWith('ss');
             }
             return word.endsWith(ending);
+        });
+    }
             async estimatePossibleWords() {
         try {
             await this.delayIfNeeded();
@@ -474,5 +476,4 @@ class Game {
 
 // Initialize the game when the DOM is loaded
 document.addEventListener("DOMContentLoaded", () => new Game());
-        });
     }
