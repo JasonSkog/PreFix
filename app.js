@@ -162,6 +162,7 @@ class Game {
             this.state.maxPossiblePoints = 60;
         }
     }
+    
     async validateAndGetComplexity(word) {
         try {
             if (this.isLikelyPlural(word)) {
@@ -204,6 +205,7 @@ class Game {
             return { valid: false, complexity: 0 };
         }
     }
+    
     getSingularForm(word) {
         if (word.endsWith('ies')) {
             return word.slice(0, -3) + 'y';
