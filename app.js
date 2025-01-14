@@ -1,5 +1,3 @@
-[First 600 lines - Save this as Part 1]
-
 class Game {
     constructor() {
         this.consonantBlends = [
