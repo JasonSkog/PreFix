@@ -1,3 +1,5 @@
+[First 600 lines - Save this as Part 1]
+
 class Game {
     constructor() {
         this.consonantBlends = [
@@ -31,6 +33,7 @@ class Game {
             totalScore: 0,
             currentAchievement: "",
             possibleWords: 0,
+            maxPossiblePoints: 0,
             date: new Date().toLocaleDateString(),
             day: [
                 "Sunday", "Monday", "Tuesday", "Wednesday", 
@@ -39,14 +42,13 @@ class Game {
         };
         
         this.state = this.loadState() || this.defaultState;
-        this.lastApiCall = 0; // Track timing of API calls
-        this.API_DELAY = 100; // Delay between API calls in ms
-        this.API_TIMEOUT = 5000; // API timeout in ms
+        this.lastApiCall = 0;
+        this.API_DELAY = 100;
+        this.API_TIMEOUT = 5000;
         
         this.initializeGame();
     }
 
-    // Helper method for API rate limiting
     async delayIfNeeded() {
         const now = Date.now();
         const timeSinceLastCall = now - this.lastApiCall;
@@ -56,7 +58,6 @@ class Game {
         this.lastApiCall = Date.now();
     }
 
-    // Helper method for API calls with timeout
     async fetchWithTimeout(url, options = {}) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.API_TIMEOUT);
@@ -134,8 +135,8 @@ class Game {
                 maxPoints += points;
             }
             this.state.maxPossiblePoints = maxPoints;
-            
             this.saveState();
+            
         } catch (error) {
             console.error('Error estimating possible words:', error);
             if (error.name === 'AbortError') {
@@ -222,7 +223,6 @@ class Game {
         }
     }
 
-    // Rest of the existing methods remain the same...
     getSingularForm(word) {
         if (word.endsWith('ies')) {
             return word.slice(0, -3) + 'y';
@@ -248,44 +248,169 @@ class Game {
     saveState() {
         localStorage.setItem("prefixGame", JSON.stringify(this.state));
     }
+    async submitWord(word) {
+        word = word.toLowerCase().trim();
+        
+        if (!word) return { success: false, message: "Please enter a word" };
+        if (!word.startsWith(this.state.prefix.toLowerCase())) {
+            return {
+                success: false,
+                message: `Word must start with "${this.state.prefix}"`,
+            };
+        }
+        if (this.state.foundWords[word]) {
+            return { success: false, message: "Word already found!" };
+        }
+
+        const singularForm = this.getSingularForm(word);
+        if (singularForm && this.state.foundWords[singularForm]) {
+            return { 
+                success: false, 
+                message: "Plural form not allowed - you already found the singular!" 
+            };
+        }
+
+        const simplePlural = word + 's';
+        const esPlural = word + 'es';
+        const iesPlural = word.endsWith('y') ? word.slice(0, -1) + 'ies' : null;
+        
+        if (this.state.foundWords[simplePlural] || 
+            this.state.foundWords[esPlural] || 
+            (iesPlural && this.state.foundWords[iesPlural])) {
+            return { 
+                success: false, 
+                message: "Singular form not allowed - you already found the plural!" 
+            };
+        }
+
+        const isValid = await this.validateWord(word);
+        if (!isValid) {
+            return { 
+                success: false, 
+                message: `Not a valid ${this.state.syllableCount}-syllable word` 
+            };
+        }
+
+        const points = await this.getWordComplexity(word);
+        
+        this.state.foundWords[word] = { 
+            points, 
+            category: this.getCategory(points) 
+        };
+        this.state.totalScore += points;
+        this.saveState();
+        this.updateUI();
+        this.updateAchievements();
+
+        return {
+            success: true,
+            message: `Found "${word}" - ${points} point${points !== 1 ? "s" : ""}!`,
+        };
+    }
+
+    getCategory(points) {
+        if (points === 1) return 'common';
+        if (points === 2) return 'moderate';
+        return 'challenging';
+    }
 
     updateUI() {
-        document.getElementById("currentPrefix").textContent = 
-            this.state.prefix.toUpperCase();
-        document.getElementById("syllableCount").textContent = 
-            `${this.state.syllableCount}-syllable words`;
-        document.getElementById("dateDisplay").textContent = 
-            `${this.state.day} - ${this.state.date}`;
-        document.getElementById("totalScore").textContent = 
-            this.state.totalScore;
-        document.getElementById("wordsFound").textContent = 
-            Object.keys(this.state.foundWords).length;
-        document.getElementById("possibleWords").textContent = 
-            this.state.possibleWords;
-
+        // Update prefix and syllable count
+        const prefix = document.getElementById("currentPrefix");
+        if (prefix) prefix.textContent = this.state.prefix.toUpperCase();
+        
+        const syllableCount = document.getElementById("syllableCount");
+        if (syllableCount) syllableCount.textContent = `${this.state.syllableCount}-syllable words`;
+        
+        // Update date display
+        const dateDisplay = document.getElementById("dateDisplay");
+        if (dateDisplay) dateDisplay.textContent = `${this.state.day} - ${this.state.date}`;
+        
+        // Update scores and counts
+        const totalScore = document.getElementById("totalScore");
+        if (totalScore) totalScore.textContent = this.state.totalScore;
+        
+        const wordsFound = document.getElementById("wordsFound");
+        if (wordsFound) wordsFound.textContent = Object.keys(this.state.foundWords).length;
+        
+        const foundCount = document.getElementById("foundCount");
+        if (foundCount) foundCount.textContent = Object.keys(this.state.foundWords).length;
+        
+        const possibleWords = document.getElementById("possibleWords");
+        if (possibleWords) possibleWords.textContent = this.state.possibleWords;
+        
+        const possiblePoints = document.getElementById("possiblePoints");
+        if (possiblePoints) possiblePoints.textContent = this.state.maxPossiblePoints || 0;
+        
+        // Update progress bar
         const progress = (Object.keys(this.state.foundWords).length / this.state.possibleWords) * 100;
-        document.getElementById("progressBar").style.width = 
-            `${Math.min(progress, 100)}%`;
-
-        const wordsHTML = Object.entries(this.state.foundWords)
-            .map(([word, data]) => `
-                <div class="word-chip">
-                    ${word}
-                    <span class="point-badge ${data.category}">
-                        ${data.points}pt${data.points !== 1 ? "s" : ""}
-                    </span>
-                </div>
-            `)
-            .join("");
-        document.getElementById("foundWords").innerHTML = wordsHTML;
+        const progressBar = document.getElementById("progressBar");
+        if (progressBar) {
+            progressBar.style.width = `${Math.min(progress, 100)}%`;
+            const progressContainer = progressBar.closest('[role="progressbar"]');
+            if (progressContainer) {
+                progressContainer.setAttribute('aria-valuenow', Math.round(progress));
+            }
+        }
+        
+        // Update found words list
+        const foundWordsContainer = document.getElementById("foundWords");
+        if (foundWordsContainer) {
+            const wordsHTML = Object.entries(this.state.foundWords)
+                .map(([word, data]) => `
+                    <div class="word-chip">
+                        ${word}
+                        <span class="point-badge ${data.category}">
+                            ${data.points}pt${data.points !== 1 ? "s" : ""}
+                        </span>
+                    </div>
+                `)
+                .join("");
+            foundWordsContainer.innerHTML = wordsHTML;
+        }
     }
 
     updateInputPlaceholder() {
         const input = document.getElementById("wordInput");
         if (input) {
-            input.placeholder = `Enter a ${this.state.syllableCount}-syllable word starting with "${this.state.prefix}"...`;
+            input.placeholder = `Enter a ${this.state.syllableCount}-syllable word starting with "${this.state.prefix}"`;
             input.value = "";
-            input.removeAttribute('disabled');
+            input.focus();
+        }
+    }
+
+    updateAchievements() {
+        const progress = Object.keys(this.state.foundWords).length / this.state.possibleWords;
+        let newAchievement = "";
+        
+        for (let i = this.achievements.length - 1; i >= 0; i--) {
+            if (progress >= this.achievements[i].threshold) {
+                newAchievement = this.achievements[i].name;
+                break;
+            }
+        }
+        
+        if (newAchievement && newAchievement !== this.state.currentAchievement) {
+            this.state.currentAchievement = newAchievement;
+            this.saveState();
+            this.showAchievementBadge(newAchievement);
+            this.showMessage(`Achievement Unlocked: ${newAchievement}!`, true);
+        }
+    }
+
+    showAchievementBadge(achievementName) {
+        const badge = document.getElementById("currentAchievement");
+        const achievement = this.achievements.find(a => a.name === achievementName);
+        
+        if (badge && achievement) {
+            badge.textContent = achievementName;
+            badge.className = `achievement-badge ${achievement.className}`;
+            badge.hidden = false;
+            badge.classList.add("achievement-unlock");
+            
+            setTimeout(() => {
+                badge.classList.remove("achievement-unlock");
+            }, 500);
         }
     }
 
@@ -342,5 +467,4 @@ class Game {
     }
 }
 
-// Initialize the game when the DOM is loaded
 document.addEventListener("DOMContentLoaded", () => new Game());
