@@ -166,7 +166,11 @@ body {
     color: #64748b;
     text-transform: uppercase;
 }
-
+.stat-sublabel {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+}
 /* Progress Bar */
 .progress-container {
     margin-bottom: 24px;
