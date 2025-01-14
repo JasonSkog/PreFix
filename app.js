@@ -1,8 +1,9 @@
+// Part 1 - Core Game Class and Base Methods
 class Game {
     constructor() {
         this.consonantBlends = [
             'bl', 'br', 'ch', 'cl', 'cr', 'dr', 'fl', 
-            'fr', 'gl', 'gr', 'pl', 'pr', 'sc', 'sk', 
+            'fr', 'gl', 'gr', 'pl', 'sc', 'sk', 
             'sl', 'sm', 'sn', 'sp', 'st', 'sw', 'tr', 'tw'
         ];
         
@@ -12,7 +13,7 @@ class Game {
             'me', 'mi', 'mo', 'pe', 'po', 'ra', 'sa', 'se', 'su', 'te'
         ];
         
-        this.allPrefixes = [...this.consonantBlends, ...this.twoLetterCombos];
+        this.allPrefixes = [...new Set([...this.consonantBlends, ...this.twoLetterCombos])];
         
         this.achievements = [
             { name: "Word Explorer", threshold: 0.25, className: "achievement-1" },
@@ -43,6 +44,7 @@ class Game {
         this.lastApiCall = 0;
         this.API_DELAY = 100;
         this.API_TIMEOUT = 5000;
+        this.API_MAX_RETRIES = 3;
         
         this.initializeGame();
     }
@@ -56,7 +58,7 @@ class Game {
         this.lastApiCall = Date.now();
     }
 
-    async fetchWithTimeout(url, options = {}) {
+    async fetchWithTimeout(url, options = {}, retries = 0) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.API_TIMEOUT);
         
@@ -66,19 +68,35 @@ class Game {
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             return response;
         } catch (error) {
             clearTimeout(timeoutId);
+            if (retries < this.API_MAX_RETRIES && 
+                (error.name === 'AbortError' || error.message.includes('HTTP error'))) {
+                console.log(`Retrying API call, attempt ${retries + 1}`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1)));
+                return this.fetchWithTimeout(url, options, retries + 1);
+            }
             throw error;
         }
     }
 
     async initializeGame() {
-        await this.estimatePossibleWords();
-        this.updateUI();
-        this.setupEventListeners();
-        this.updateInputPlaceholder();
-        this.clearMessage();
+        try {
+            await this.estimatePossibleWords();
+            this.updateUI();
+            this.setupEventListeners();
+            this.updateInputPlaceholder();
+            this.clearMessage();
+        } catch (error) {
+            console.error('Error initializing game:', error);
+            this.showMessage('Error initializing game. Please refresh the page.', false);
+        }
     }
 
     getDailySyllableCount() {
@@ -102,10 +120,7 @@ class Game {
                 return word.endsWith('s') && !word.endsWith('ss');
             }
             return word.endsWith(ending);
-        });
-    }
-
-    async estimatePossibleWords() {
+            async estimatePossibleWords() {
         try {
             await this.delayIfNeeded();
             const response = await this.fetchWithTimeout(
@@ -145,79 +160,46 @@ class Game {
         }
     }
 
-    async validateWord(word) {
+    async validateAndGetComplexity(word) {
         try {
             if (this.isLikelyPlural(word)) {
-                return false;
-            }
-
-            const singularForm = this.getSingularForm(word);
-            if (singularForm && this.state.foundWords[singularForm]) {
-                return false;
-            }
-
-            const simplePlural = word + 's';
-            const esPlural = word + 'es';
-            const iesPlural = word.endsWith('y') ? word.slice(0, -1) + 'ies' : null;
-            
-            if (this.state.foundWords[simplePlural] || 
-                this.state.foundWords[esPlural] || 
-                (iesPlural && this.state.foundWords[iesPlural])) {
-                return false;
+                return { valid: false, complexity: 0 };
             }
 
             await this.delayIfNeeded();
             const response = await this.fetchWithTimeout(
-                `https://api.datamuse.com/words?sp=${word}&md=sf&max=1`
+                `https://api.datamuse.com/words?sp=${word}&md=sf,f&max=1`
             );
             const data = await response.json();
             
-            if (data.length === 0) return false;
+            if (data.length === 0) return { valid: false, complexity: 0 };
             
             const wordData = data[0];
             const numSyllables = wordData.numSyllables || 0;
             const isPlural = wordData.tags?.includes('pl');
             
-            return (
+            const valid = (
                 wordData.word === word &&
                 numSyllables === this.state.syllableCount &&
                 !wordData.tags?.includes('prop') &&
                 word === word.toLowerCase() &&
                 !isPlural
             );
+
+            if (!valid) return { valid: false, complexity: 0 };
+
+            const frequencyTag = wordData.tags?.find((tag) => tag.startsWith("f:"));
+            let complexity = 3;
+            if (frequencyTag) {
+                const frequency = parseFloat(frequencyTag.split(":")[1]);
+                if (frequency > 10) complexity = 1;
+                else if (frequency > 1) complexity = 2;
+            }
+
+            return { valid: true, complexity };
         } catch (error) {
             console.error('API Error:', error);
-            if (error.name === 'AbortError') {
-                this.showMessage('API request timed out. Please try again.', false);
-            }
-            return false;
-        }
-    }
-
-    async getWordComplexity(word) {
-        try {
-            await this.delayIfNeeded();
-            const response = await this.fetchWithTimeout(
-                `https://api.datamuse.com/words?sp=${word}&md=f`
-            );
-            const data = await response.json();
-
-            if (data.length > 0 && data[0].tags) {
-                const frequencyTag = data[0].tags.find((tag) => tag.startsWith("f:"));
-                if (frequencyTag) {
-                    const frequency = parseFloat(frequencyTag.split(":")[1]);
-                    if (frequency > 10) return 1;
-                    if (frequency > 1) return 2;
-                    return 3;
-                }
-            }
-            return 3;
-        } catch (error) {
-            console.error('API Error:', error);
-            if (error.name === 'AbortError') {
-                console.error('API request timed out');
-            }
-            return 3;
+            return { valid: false, complexity: 0 };
         }
     }
 
@@ -239,13 +221,19 @@ class Game {
                 ? saved
                 : null;
         } catch (e) {
+            console.error('Error loading game state:', e);
             return null;
         }
     }
 
     saveState() {
-        localStorage.setItem("prefixGame", JSON.stringify(this.state));
+        try {
+            localStorage.setItem("prefixGame", JSON.stringify(this.state));
+        } catch (error) {
+            console.error('Error saving game state:', error);
+        }
     }
+
     async submitWord(word) {
         word = word.toLowerCase().trim();
         
@@ -281,28 +269,26 @@ class Game {
             };
         }
 
-        const isValid = await this.validateWord(word);
-        if (!isValid) {
+        const { valid, complexity } = await this.validateAndGetComplexity(word);
+        if (!valid) {
             return { 
                 success: false, 
                 message: `Not a valid ${this.state.syllableCount}-syllable word` 
             };
         }
 
-        const points = await this.getWordComplexity(word);
-        
         this.state.foundWords[word] = { 
-            points, 
-            category: this.getCategory(points) 
+            points: complexity, 
+            category: this.getCategory(complexity) 
         };
-        this.state.totalScore += points;
+        this.state.totalScore += complexity;
         this.saveState();
         this.updateUI();
         this.updateAchievements();
 
         return {
             success: true,
-            message: `Found "${word}" - ${points} point${points !== 1 ? "s" : ""}!`,
+            message: `Found "${word}" - ${complexity} point${complexity !== 1 ? "s" : ""}!`,
         };
     }
 
@@ -313,156 +299,180 @@ class Game {
     }
 
     updateUI() {
-        // Update prefix and syllable count
-        const prefix = document.getElementById("currentPrefix");
-        if (prefix) prefix.textContent = this.state.prefix.toUpperCase();
-        
-        const syllableCount = document.getElementById("syllableCount");
-        if (syllableCount) syllableCount.textContent = `${this.state.syllableCount}-syllable words`;
-        
-        // Update date display
-        const dateDisplay = document.getElementById("dateDisplay");
-        if (dateDisplay) dateDisplay.textContent = `${this.state.day} - ${this.state.date}`;
-        
-        // Update scores and counts
-        const totalScore = document.getElementById("totalScore");
-        if (totalScore) totalScore.textContent = this.state.totalScore;
-        
-        const wordsFound = document.getElementById("wordsFound");
-        if (wordsFound) wordsFound.textContent = Object.keys(this.state.foundWords).length;
-        
-        const foundCount = document.getElementById("foundCount");
-        if (foundCount) foundCount.textContent = Object.keys(this.state.foundWords).length;
-        
-        const possibleWords = document.getElementById("possibleWords");
-        if (possibleWords) possibleWords.textContent = this.state.possibleWords;
-        
-        const possiblePoints = document.getElementById("possiblePoints");
-        if (possiblePoints) possiblePoints.textContent = this.state.maxPossiblePoints || 0;
-        
-        // Update progress bar
-        const progress = (Object.keys(this.state.foundWords).length / this.state.possibleWords) * 100;
-        const progressBar = document.getElementById("progressBar");
-        if (progressBar) {
-            progressBar.style.width = `${Math.min(progress, 100)}%`;
-            const progressContainer = progressBar.closest('[role="progressbar"]');
-            if (progressContainer) {
-                progressContainer.setAttribute('aria-valuenow', Math.round(progress));
+        try {
+            const elements = {
+                prefix: document.getElementById("currentPrefix"),
+                syllableCount: document.getElementById("syllableCount"),
+                dateDisplay: document.getElementById("dateDisplay"),
+                totalScore: document.getElementById("totalScore"),
+                wordsFound: document.getElementById("wordsFound"),
+                foundCount: document.getElementById("foundCount"),
+                possibleWords: document.getElementById("possibleWords"),
+                possiblePoints: document.getElementById("possiblePoints"),
+                progressBar: document.getElementById("progressBar"),
+                foundWordsContainer: document.getElementById("foundWords")
+            };
+
+            if (elements.prefix) elements.prefix.textContent = this.state.prefix.toUpperCase();
+            if (elements.syllableCount) elements.syllableCount.textContent = `${this.state.syllableCount}-syllable words`;
+            if (elements.dateDisplay) elements.dateDisplay.textContent = `${this.state.day} - ${this.state.date}`;
+            if (elements.totalScore) elements.totalScore.textContent = this.state.totalScore;
+            
+            const foundWordsCount = Object.keys(this.state.foundWords).length;
+            if (elements.wordsFound) elements.wordsFound.textContent = foundWordsCount;
+            if (elements.foundCount) elements.foundCount.textContent = foundWordsCount;
+            if (elements.possibleWords) elements.possibleWords.textContent = this.state.possibleWords;
+            if (elements.possiblePoints) elements.possiblePoints.textContent = this.state.maxPossiblePoints || 0;
+
+            const progress = (foundWordsCount / this.state.possibleWords) * 100;
+            if (elements.progressBar) {
+                elements.progressBar.style.width = `${Math.min(progress, 100)}%`;
+                const progressContainer = elements.progressBar.closest('[role="progressbar"]');
+                if (progressContainer) {
+                    progressContainer.setAttribute('aria-valuenow', Math.round(progress));
+                }
             }
-        }
-        
-        // Update found words list
-        const foundWordsContainer = document.getElementById("foundWords");
-        if (foundWordsContainer) {
-            const wordsHTML = Object.entries(this.state.foundWords)
-                .map(([word, data]) => `
-                    <div class="word-chip">
-                        ${word}
-                        <span class="point-badge ${data.category}">
-                            ${data.points}pt${data.points !== 1 ? "s" : ""}
-                        </span>
-                    </div>
-                `)
-                .join("");
-            foundWordsContainer.innerHTML = wordsHTML;
+
+            if (elements.foundWordsContainer) {
+                const wordsHTML = Object.entries(this.state.foundWords)
+                    .map(([word, data]) => `
+                        <div class="word-chip">
+                            ${word}
+                            <span class="point-badge ${data.category}">
+                                ${data.points}pt${data.points !== 1 ? "s" : ""}
+                            </span>
+                        </div>
+                    `)
+                    .join("");
+                elements.foundWordsContainer.innerHTML = wordsHTML;
+            }
+        } catch (error) {
+            console.error('Error updating UI:', error);
         }
     }
 
     updateInputPlaceholder() {
-        const input = document.getElementById("wordInput");
-        if (input) {
-            input.placeholder = `Enter a ${this.state.syllableCount}-syllable word starting with "${this.state.prefix}"`;
-            input.value = "";
-            input.focus();
+        try {
+            const input = document.getElementById("wordInput");
+            if (input) {
+                input.placeholder = `Enter a ${this.state.syllableCount}-syllable word starting with "${this.state.prefix}"`;
+                input.value = "";
+                input.focus();
+            }
+        } catch (error) {
+            console.error('Error updating input placeholder:', error);
         }
     }
 
     updateAchievements() {
-        const progress = Object.keys(this.state.foundWords).length / this.state.possibleWords;
-        let newAchievement = "";
-        
-        for (let i = this.achievements.length - 1; i >= 0; i--) {
-            if (progress >= this.achievements[i].threshold) {
-                newAchievement = this.achievements[i].name;
-                break;
+        try {
+            const progress = Object.keys(this.state.foundWords).length / this.state.possibleWords;
+            let newAchievement = "";
+            
+            for (let i = this.achievements.length - 1; i >= 0; i--) {
+                if (progress >= this.achievements[i].threshold) {
+                    newAchievement = this.achievements[i].name;
+                    break;
+                }
             }
-        }
-        
-        if (newAchievement && newAchievement !== this.state.currentAchievement) {
-            this.state.currentAchievement = newAchievement;
-            this.saveState();
-            this.showAchievementBadge(newAchievement);
-            this.showMessage(`Achievement Unlocked: ${newAchievement}!`, true);
+            
+            if (newAchievement && newAchievement !== this.state.currentAchievement) {
+                this.state.currentAchievement = newAchievement;
+                this.saveState();
+                this.showAchievementBadge(newAchievement);
+                this.showMessage(`Achievement Unlocked: ${newAchievement}!`, true);
+            }
+        } catch (error) {
+            console.error('Error updating achievements:', error);
         }
     }
 
     showAchievementBadge(achievementName) {
-        const badge = document.getElementById("currentAchievement");
-        const achievement = this.achievements.find(a => a.name === achievementName);
-        
-        if (badge && achievement) {
-            badge.textContent = achievementName;
-            badge.className = `achievement-badge ${achievement.className}`;
-            badge.hidden = false;
-            badge.classList.add("achievement-unlock");
+        try {
+            const badge = document.getElementById("currentAchievement");
+            const achievement = this.achievements.find(a => a.name === achievementName);
             
-            setTimeout(() => {
-                badge.classList.remove("achievement-unlock");
-            }, 500);
+            if (badge && achievement) {
+                badge.textContent = achievementName;
+                badge.className = `achievement-badge ${achievement.className}`;
+                badge.hidden = false;
+                badge.classList.add("achievement-unlock");
+                
+                setTimeout(() => {
+                    badge.classList.remove("achievement-unlock");
+                }, 500);
+            }
+        } catch (error) {
+            console.error('Error showing achievement badge:', error);
         }
     }
 
     setupEventListeners() {
-        const form = document.getElementById("wordForm");
-        const input = document.getElementById("wordInput");
-        
-        if (!form || !input) {
-            console.error("Required DOM elements not found");
-            return;
-        }
-
-        form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const word = input.value.trim();
+        try {
+            const form = document.getElementById("wordForm");
+            const input = document.getElementById("wordInput");
             
-            this.clearMessage();
-            
-            if (!word) {
-                this.showMessage("Please enter a word", false);
+            if (!form || !input) {
+                console.error("Required DOM elements not found");
                 return;
             }
 
-            const result = await this.submitWord(word);
-            this.showMessage(result.message, result.success);
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const word = input.value.trim();
+                
+                this.clearMessage();
+                
+                if (!word) {
+                    this.showMessage("Please enter a word", false);
+                    return;
+                }
 
-            if (result.success) {
-                input.value = "";
-            }
-            
-            input.focus();
-        });
+                const result = await this.submitWord(word);
+                this.showMessage(result.message, result.success);
+
+                if (result.success) {
+                    input.value = "";
+                }
+                
+                input.focus();
+            });
+        } catch (error) {
+            console.error('Error setting up event listeners:', error);
+        }
     }
 
     clearMessage() {
-        const messageDiv = document.getElementById("message");
-        if (messageDiv) {
-            messageDiv.style.display = "none";
-            messageDiv.textContent = "";
+        try {
+            const messageDiv = document.getElementById("message");
+            if (messageDiv) {
+                messageDiv.style.display = "none";
+                messageDiv.textContent = "";
+            }
+        } catch (error) {
+            console.error('Error clearing message:', error);
         }
     }
 
     showMessage(text, isSuccess) {
-        const messageDiv = document.getElementById("message");
-        if (messageDiv) {
-            messageDiv.textContent = text;
-            messageDiv.className = `message ${isSuccess ? "success" : "error"}`;
-            messageDiv.style.display = "block";
-            
-            if (isSuccess) {
-                setTimeout(() => this.clearMessage(), 3000);
+        try {
+            const messageDiv = document.getElementById("message");
+            if (messageDiv) {
+                messageDiv.textContent = text;
+                messageDiv.className = `message ${isSuccess ? "success" : "error"}`;
+                messageDiv.style.display = "block";
+                
+                if (isSuccess) {
+                    setTimeout(() => this.clearMessage(), 3000);
+                }
             }
+        } catch (error) {
+            console.error('Error showing message:', error);
         }
     }
 }
 
+// Initialize the game when the DOM is loaded
 document.addEventListener("DOMContentLoaded", () => new Game());
+        });
+    }
