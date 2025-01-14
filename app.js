@@ -82,21 +82,21 @@ class Game {
         });
     }
 
-    async estimatePossibleWords() {
-        try {
-            const response = await fetch(
-                `https://api.datamuse.com/words?sp=${this.state.prefix}*&md=sf&max=1000`
-            );
-            const data = await response.json();
+async estimatePossibleWords() {
+    try {
+        const response = await fetch(
+            `https://api.datamuse.com/words?sp=${this.state.prefix}*&md=sf&max=1000`
+        );
+        const data = await response.json();
             
             // Filter valid words using all our plural checks
             const validWords = data.filter(word => {
-                const wordStr = word.word;
-                return !this.isLikelyPlural(wordStr) &&
-                       word.numSyllables === this.state.syllableCount &&
-                       !word.tags?.includes('prop') &&
-                       !word.tags?.includes('pl');
-            });
+            const wordStr = word.word;
+            return !this.isLikelyPlural(wordStr) &&
+                   word.numSyllables === this.state.syllableCount &&
+                   !word.tags?.includes('prop') &&
+                   !word.tags?.includes('pl');
+        });
             
             this.state.possibleWords = validWords.length;
             this.saveState();
@@ -306,7 +306,40 @@ class Game {
             }, 500);
         }
     }
+let maxPoints = 0;
+        for (const word of validWords) {
+            const frequency = word.tags?.find(tag => tag.startsWith('f:'));
+            const points = frequency ? 
+                (parseFloat(frequency.split(':')[1]) > 10 ? 1 : 
+                 parseFloat(frequency.split(':')[1]) > 1 ? 2 : 3) 
+                : 3;
+            maxPoints += points;
+        }
+        this.state.maxPossiblePoints = maxPoints;
+        
+        this.saveState();
+    } catch (error) {
+        console.error('Error estimating possible words:', error);
+        this.state.possibleWords = 20;
+        this.state.maxPossiblePoints = 60; // Fallback value
+    }
+}
 
+updateUI() {
+    document.getElementById("currentPrefix").textContent = 
+        this.state.prefix.toUpperCase();
+    document.getElementById("syllableCount").textContent = 
+        `${this.state.syllableCount}-syllable words`;
+    document.getElementById("dateDisplay").textContent = 
+        `${this.state.day} - ${this.state.date}`;
+    document.getElementById("totalScore").textContent = 
+        this.state.totalScore;
+    document.getElementById("wordsFound").textContent = 
+        Object.keys(this.state.foundWords).length;
+    document.getElementById("wordsFoundRatio").textContent = 
+        `(out of ${this.state.possibleWords} possible)`;
+    document.getElementById("possiblePoints").textContent = 
+        this.state.maxPossiblePoints;
     updateUI() {
         document.getElementById("currentPrefix").textContent = 
             this.state.prefix.toUpperCase();
