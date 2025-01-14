@@ -58,7 +58,7 @@ class Game {
         this.lastApiCall = Date.now();
     }
 
-    async fetchWithTimeout(url, options = {}, retries = 0) {
+   async fetchWithTimeout(url, options = {}, retries = 0) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.API_TIMEOUT);
         
