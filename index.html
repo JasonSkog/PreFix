@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="PreFix - A daily word game challenging you to build words with prefix blends">
+    <meta name="theme-color" content="#ffffff">
     <title>PreFix - Daily Word-Building Challenge</title>
+    <!-- Preload critical fonts -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" as="style">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 </head>
@@ -13,64 +16,78 @@
         <header class="game-header">
             <h1 class="title">PreFix</h1>
             <div class="game-info">
-                <div id="currentPrefix" class="prefix" aria-label="Today's prefix">BR</div>
-                <div id="syllableCount" class="syllable-count" aria-label="Required syllables">2-syllable words</div>
+                <div id="currentPrefix" class="prefix" aria-label="Today's prefix"></div>
+                <div id="syllableCount" class="syllable-count" aria-label="Required syllables"></div>
                 <div id="dateDisplay" class="date-display" aria-label="Current date"></div>
             </div>
         </header>
         
         <main>
             <form id="wordForm" class="input-form" autocomplete="off">
-                <label for="wordInput" class="sr-only">Enter a word with the given prefix</label>
-                <input 
-                    type="text" 
-                    id="wordInput" 
-                    class="input-field" 
-                    placeholder="Enter a word..." 
-                    autocomplete="off"
-                    aria-label="Word input field">
-                <button type="submit" class="button">Submit</button>
+                <div class="input-group">
+                    <label for="wordInput" class="sr-only">Enter a word with the given prefix</label>
+                    <input 
+                        type="text" 
+                        id="wordInput" 
+                        class="input-field" 
+                        placeholder="Enter a word..." 
+                        autocomplete="off"
+                        spellcheck="false"
+                        aria-label="Word input field"
+                        required
+                        minlength="2">
+                    <button type="submit" class="button" aria-label="Submit word">Submit</button>
+                </div>
             </form>
             
-            <div id="message" class="message" role="status" aria-live="polite"></div>
+            <div id="message" class="message" role="alert" aria-live="assertive"></div>
 
-            <div class="stats-grid" aria-label="Game statistics">
-    <div class="stat-item">
-        <div id="totalScore" class="stat-value" aria-label="Current score">0</div>
-        <div class="stat-label">Score</div>
-    </div>
-    <div class="stat-item">
-        <div id="wordsFound" class="stat-value" aria-label="Words found">0</div>
-        <div class="stat-label">Words Found</div>
-        <div id="wordsFoundRatio" class="stat-sublabel">(out of 0 possible)</div>
-    </div>
-    <div class="stat-item">
-        <div id="possiblePoints" class="stat-value" aria-label="Maximum possible points">0</div>
-        <div class="stat-label">Total Points Possible</div>
-    </div>
+            <section class="stats-grid" aria-labelledby="stats-heading">
+                <h2 id="stats-heading" class="sr-only">Game Statistics</h2>
+                <div class="stat-item">
+                    <div id="totalScore" class="stat-value" aria-label="Current score">0</div>
+                    <div class="stat-label">Score</div>
+                </div>
+                <div class="stat-item">
+                    <div id="wordsFound" class="stat-value" aria-label="Words found">0</div>
+                    <div class="stat-label">Words Found</div>
+                    <div id="wordsFoundRatio" class="stat-sublabel"></div>
+                </div>
+                <div class="stat-item">
+                    <div id="possiblePoints" class="stat-value" aria-label="Maximum possible points">0</div>
+                    <div class="stat-label">Total Points Possible</div>
+                </div>
+            </section>
             
-            <div class="progress-container" role="progressbar" aria-label="Progress towards goal">
-                <div class="progress-bar">
-                    <div id="progressBar" class="progress-fill"></div>
+            <section class="progress-section" aria-labelledby="progress-heading">
+                <h2 id="progress-heading" class="sr-only">Progress Tracking</h2>
+                <div class="progress-container" role="progressbar" aria-label="Progress towards goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div class="progress-bar">
+                        <div id="progressBar" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-markers" aria-hidden="true">
+                        <div class="marker marker-25" title="25% - Explorer"></div>
+                        <div class="marker marker-50" title="50% - Enthusiast"></div>
+                        <div class="marker marker-75" title="75% - Expert"></div>
+                    </div>
+                    <div class="progress-labels" aria-hidden="true">
+                        <span>Explorer</span>
+                        <span>Enthusiast</span>
+                        <span>Expert</span>
+                        <span>Champion</span>
+                    </div>
                 </div>
-                <div class="progress-markers" aria-hidden="true">
-                    <div class="marker marker-25"></div>
-                    <div class="marker marker-50"></div>
-                    <div class="marker marker-75"></div>
-                </div>
-                <div class="progress-labels">
-                    <span>Explorer</span>
-                    <span>Enthusiast</span>
-                    <span>Expert</span>
-                    <span>Champion</span>
-                </div>
-            </div>
+            </section>
 
-            <div id="currentAchievement" class="achievement-badge" style="display: none;"></div>
+            <div id="currentAchievement" class="achievement-badge" role="alert" aria-live="polite" hidden></div>
             
-            <div id="foundWords" class="found-words" aria-label="List of found words"></div>
+            <section class="words-section" aria-labelledby="words-heading">
+                <h2 id="words-heading" class="sr-only">Found Words</h2>
+                <div id="foundWords" class="found-words" role="list"></div>
+            </section>
             
-            <div class="info-section">
+            <section class="info-section" aria-labelledby="info-heading">
+                <h2 id="info-heading" class="sr-only">Game Information</h2>
                 <div class="info-box">
                     <h3>How Points Work:</h3>
                     <ul class="info-list">
@@ -88,10 +105,9 @@
                         <li><span class="font-semibold">Word Champion:</span> Find all possible words</li>
                     </ul>
                 </div>
-            </div>
+            </section>
         </main>
     </div>
-    <script src="app.js" type="text/javascript"></script>
+    <script src="app.js" defer></script>
 </body>
 </html>
-
