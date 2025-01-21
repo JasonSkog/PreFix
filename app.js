@@ -55,6 +55,8 @@ class Game {
         };
         
         this.state = this.loadState() || this.defaultState;
+        console.log('Initial state:', this.state);
+        console.log('Daily prefix:', this.state.prefix);
         this.lastApiCall = 0;
         this.API_DELAY = 100;
         this.API_TIMEOUT = 5000;
