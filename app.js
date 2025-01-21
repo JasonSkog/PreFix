@@ -27,7 +27,7 @@ class Game {
             { name: "Word Champion", threshold: 1.0, className: "achievement-4" }
 
         ];
-
+        
         this.pluralEndings = ['s', 'es', 'ers', 'ors', 'ies'];
         this.nonPluralExceptions = ['ss', 'ous', 'ics'];
         
