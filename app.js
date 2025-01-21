@@ -124,46 +124,52 @@ class Game {
     }
 
     async estimatePossibleWords() {
-        try {
+       try {
             await this.delayIfNeeded();
             const response = await this.fetchWithTimeout(
-                `https://api.datamuse.com/words?sp=${this.state.prefix}*&md=sf&max=1000`
-            );
+            `https://api.datamuse.com/words?sp=${this.state.prefix}*&md=sf&max=1000`
+        );
             const data = await response.json();
+        
+        const validWords = data.filter(word => {
+            const wordStr = word.word;
+            const frequency = word.tags?.find(tag => tag.startsWith('f:'));
+            const freq = frequency ? parseFloat(frequency.split(':')[1]) : 0;
             
-            const validWords = data.filter(word => {
-                const wordStr = word.word;
-                return !this.isLikelyPlural(wordStr) &&
-                       word.numSyllables === this.state.syllableCount &&
-                       !word.tags?.includes('prop') &&
-                       !word.tags?.includes('pl');
-            });
-            
-            this.state.possibleWords = validWords.length;
-            
-            let maxPoints = 0;
-            for (const word of validWords) {
-                const frequency = word.tags?.find(tag => tag.startsWith('f:'));
-                const points = frequency ? 
-                    (parseFloat(frequency.split(':')[1]) > 10 ? 1 : 
-                     parseFloat(frequency.split(':')[1]) > 1 ? 2 : 3) 
-                    : 3;
-                maxPoints += points;
-            }
-            this.state.maxPossiblePoints = maxPoints;
-            this.saveState();
-            
-        } catch (error) {
-            console.error('Error estimating possible words:', error);
-            if (error.name === 'AbortError') {
-                console.error('API request timed out');
-            }
-            this.state.possibleWords = 20;
-            this.state.maxPossiblePoints = 60;
+            return !this.isLikelyPlural(wordStr) &&
+                   word.numSyllables === this.state.syllableCount &&
+                   !word.tags?.some(tag => 
+                       tag.includes('prop') ||
+                       tag.includes('foreign') ||
+                       tag.includes('unknown')
+                   ) &&
+                   freq >= 0.1 &&
+                   !word.tags?.includes('pl');
+        });
+        
+        this.state.possibleWords = validWords.length;
+        
+        let maxPoints = 0;
+        for (const word of validWords) {
+            const frequency = word.tags?.find(tag => tag.startsWith('f:'));
+            const freq = frequency ? parseFloat(frequency.split(':')[1]) : 0;
+            const points = freq > 10 ? 1 : freq > 1 ? 2 : 3;
+            maxPoints += points;
         }
+        this.state.maxPossiblePoints = maxPoints;
+        this.saveState();
+        
+    } catch (error) {
+        console.error('Error estimating possible words:', error);
+        if (error.name === 'AbortError') {
+            console.error('API request timed out');
+        }
+        this.state.possibleWords = 20;
+        this.state.maxPossiblePoints = 60;
     }
+}
     
-    async validateAndGetComplexity(word) {
+async validateAndGetComplexity(word) {
         try {
             if (this.isLikelyPlural(word)) {
                 return { valid: false, complexity: 0 };
@@ -181,23 +187,30 @@ class Game {
             const numSyllables = wordData.numSyllables || 0;
             const isPlural = wordData.tags?.includes('pl');
             
+            // Get frequency information
+            const frequencyTag = wordData.tags?.find((tag) => tag.startsWith("f:"));
+            const frequency = frequencyTag ? parseFloat(frequencyTag.split(":")[1]) : 0;
+            
+            // Enhanced validation checks
             const valid = (
                 wordData.word === word &&
                 numSyllables === this.state.syllableCount &&
-                !wordData.tags?.includes('prop') &&
+                !wordData.tags?.some(tag => 
+                    tag.includes('prop') || // Proper noun check
+                    tag.includes('foreign') || // Foreign word check
+                    tag.includes('unknown') // Unknown word check
+                ) &&
                 word === word.toLowerCase() &&
-                !isPlural
+                !isPlural &&
+                frequency >= 0.1 // Minimum frequency threshold
             );
 
             if (!valid) return { valid: false, complexity: 0 };
 
-            const frequencyTag = wordData.tags?.find((tag) => tag.startsWith("f:"));
+            // Adjusted complexity scoring
             let complexity = 3;
-            if (frequencyTag) {
-                const frequency = parseFloat(frequencyTag.split(":")[1]);
-                if (frequency > 10) complexity = 1;
-                else if (frequency > 1) complexity = 2;
-            }
+            if (frequency > 10) complexity = 1;
+            else if (frequency > 1) complexity = 2;
 
             return { valid: true, complexity };
         } catch (error) {
