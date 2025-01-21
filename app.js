@@ -115,10 +115,23 @@ class Game {
     getDailyPrefix() {
         const today = new Date();
         const dateString = `${today.getFullYear()}${today.getMonth()}${today.getDate()}`;
-        const index = parseInt(dateString, 10) % this.allPrefixes.length;
-        return this.allPrefixes[index];
+        
+        // Define prefixes to exclude (add to this list as needed)
+        const excludePrefixes = [
+            'im', 'in', 'un', 'en',  // Too short/common
+            'di', 'ci', 'su', 'te',  // Potentially difficult
+            'fo', 'po', 'pe', 'ce'   // Might be too limiting
+        ];
+        
+        // Filter the allPrefixes array
+        const validPrefixes = this.allPrefixes.filter(prefix => 
+            !excludePrefixes.includes(prefix.toLowerCase())
+        );
+        
+        const index = parseInt(dateString, 10) % validPrefixes.length;
+        return validPrefixes[index];
     }
-
+    
     isLikelyPlural(word) {
         if (this.nonPluralExceptions.some(ending => word.endsWith(ending))) {
             return false;
