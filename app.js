@@ -1,16 +1,30 @@
 // Part 1 - Core Game Class and Base Methods
 class Game {
     constructor() {
-        this.consonantBlends = [
+        const prefixes = [
+            // Consonant blends
             'bl', 'br', 'ch', 'cl', 'cr', 'dr', 'fl', 
             'fr', 'gl', 'gr', 'pl', 'sc', 'sk', 
-            'sl', 'sm', 'sn', 'sp', 'st', 'sw', 'tr', 'tw'
-        ];
-        
-        this.twoLetterCombos = [
+            'sl', 'sm', 'sn', 'sp', 'st', 'sw', 'tr', 'tw',
+            // Two letter combinations
             'co', 're', 'in', 'de', 'pr', 'pa', 'ma', 'di', 'ex', 'un',
             'ac', 'ad', 'ap', 'ba', 'ca', 'ce', 'ci', 'en', 'fo', 'im',
             'me', 'mi', 'mo', 'pe', 'po', 'ra', 'sa', 'se', 'su', 'te'
+        ];
+        
+        // Fisher-Yates shuffle algorithm
+        for (let i = prefixes.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [prefixes[i], prefixes[j]] = [prefixes[j], prefixes[i]];
+        }
+        
+        this.allPrefixes = prefixes;
+        
+        this.achievements = [
+            { name: "Word Explorer", threshold: 0.25, className: "achievement-1" },
+            { name: "Word Enthusiast", threshold: 0.50, className: "achievement-2" },
+            { name: "Word Expert", threshold: 0.75, className: "achievement-3" },
+            { name: "Word Champion", threshold: 1.0, className: "achievement-4" }
         ];
         
         this.allPrefixes = [...new Set([...this.consonantBlends, ...this.twoLetterCombos])];
